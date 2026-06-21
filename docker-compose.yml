@@ -1,0 +1,184 @@
+name: fcgames
+
+# Sobe toda a stack FCGames: RabbitMQ + os 4 microsserviços.
+# Catalog e Payments têm 2 processos cada (API publisher + Worker consumer),
+# que compartilham o mesmo arquivo SQLite (volume). O worker espera a API ficar
+# healthy para a API criar/migrar o banco primeiro (evita corrida de migration).
+#
+# Pré-requisitos: clonar os 5 repos como pastas irmãs e preencher o .env
+# (copie de .env.example). NUGET_AUTH_TOKEN = PAT com scope read:packages.
+
+x-dotnet-common: &dotnet-common
+  restart: on-failure
+  networks: [fcgames-net]
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: fcg-rabbitmq
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [fcgames-net]
+
+  users-api:
+    <<: *dotnet-common
+    build:
+      context: ../fcg-users-api
+      args:
+        NUGET_AUTH_TOKEN: ${NUGET_AUTH_TOKEN}
+    container_name: fcg-users-api
+    ports:
+      - "5001:5001"
+    environment:
+      ASPNETCORE_URLS: http://+:5001
+      ConnectionStrings__DefaultConnection: "Data Source=/data/users.db"
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: ${RABBITMQ_USER:-guest}
+      RabbitMQ__Password: ${RABBITMQ_PASS:-guest}
+      JWT__KEY: ${JWT_KEY}
+      JWT__ISSUER: AppFiapFcGames
+    volumes:
+      - users-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  catalog-api:
+    <<: *dotnet-common
+    build:
+      context: ../fcg-catalog-api
+      args:
+        NUGET_AUTH_TOKEN: ${NUGET_AUTH_TOKEN}
+    container_name: fcg-catalog-api
+    ports:
+      - "5002:5002"
+    environment:
+      ASPNETCORE_URLS: http://+:5002
+      ConnectionStrings__DefaultConnection: "Data Source=/data/catalog.db"
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: ${RABBITMQ_USER:-guest}
+      RabbitMQ__Password: ${RABBITMQ_PASS:-guest}
+      JWT__KEY: ${JWT_KEY}
+      JWT__ISSUER: AppFiapFcGames
+    volumes:
+      - catalog-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  catalog-worker:
+    <<: *dotnet-common
+    build:
+      context: ../fcg-catalog-api
+      dockerfile: Dockerfile.worker
+      args:
+        NUGET_AUTH_TOKEN: ${NUGET_AUTH_TOKEN}
+    container_name: fcg-catalog-worker
+    environment:
+      ConnectionStrings__DefaultConnection: "Data Source=/data/catalog.db"
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: ${RABBITMQ_USER:-guest}
+      RabbitMQ__Password: ${RABBITMQ_PASS:-guest}
+    volumes:
+      - catalog-data:/data
+    depends_on:
+      catalog-api:
+        condition: service_healthy
+
+  payments-api:
+    <<: *dotnet-common
+    build:
+      context: ../fcg-payments-api
+      args:
+        NUGET_AUTH_TOKEN: ${NUGET_AUTH_TOKEN}
+    container_name: fcg-payments-api
+    ports:
+      - "5003:5003"
+    environment:
+      ASPNETCORE_URLS: http://+:5003
+      ConnectionStrings__DefaultConnection: "Data Source=/data/payments.db"
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: ${RABBITMQ_USER:-guest}
+      RabbitMQ__Password: ${RABBITMQ_PASS:-guest}
+      JWT__KEY: ${JWT_KEY}
+      JWT__ISSUER: AppFiapFcGames
+    volumes:
+      - payments-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  payments-worker:
+    <<: *dotnet-common
+    build:
+      context: ../fcg-payments-api
+      dockerfile: Dockerfile.worker
+      args:
+        NUGET_AUTH_TOKEN: ${NUGET_AUTH_TOKEN}
+    container_name: fcg-payments-worker
+    environment:
+      ConnectionStrings__DefaultConnection: "Data Source=/data/payments.db"
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: ${RABBITMQ_USER:-guest}
+      RabbitMQ__Password: ${RABBITMQ_PASS:-guest}
+    volumes:
+      - payments-data:/data
+    depends_on:
+      payments-api:
+        condition: service_healthy
+
+  notifications-worker:
+    <<: *dotnet-common
+    build:
+      context: ../fcg-notifications-api
+      args:
+        NUGET_AUTH_TOKEN: ${NUGET_AUTH_TOKEN}
+    container_name: fcg-notifications-worker
+    ports:
+      - "5004:5004"
+    environment:
+      ASPNETCORE_URLS: http://+:5004
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: ${RABBITMQ_USER:-guest}
+      RabbitMQ__Password: ${RABBITMQ_PASS:-guest}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  users-data:
+  catalog-data:
+  payments-data:
+
+networks:
+  fcgames-net:
+    driver: bridge
