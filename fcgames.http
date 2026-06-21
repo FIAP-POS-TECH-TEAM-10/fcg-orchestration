@@ -1,0 +1,129 @@
+################################################################################
+# FCGames — fluxo completo de ponta a ponta
+#
+# Use com a extensão "REST Client" (VS Code) ou o HTTP Client (Rider/IntelliJ).
+# Clique em "Send Request" acima de cada bloco, na ordem. Token e IDs são
+# encadeados automaticamente entre as requisições (não precisa copiar nada).
+#
+# Pré-requisito: docker compose up (stack completa no ar).
+# Acompanhe os efeitos em: docker compose logs -f notifications-worker
+################################################################################
+
+@users = http://localhost:5001
+@catalog = http://localhost:5002
+@payments = http://localhost:5003
+@notifications = http://localhost:5004
+
+### 1) Cadastra um usuário  → dispara UsuarioCriadoEvento
+#    (catalog cria biblioteca vazia; notifications loga "email-boas-vindas")
+# @name cadastro
+POST {{users}}/usuarios
+Content-Type: application/json
+
+{
+  "nome": "Maria",
+  "email": "maria@teste.com",
+  "senha": "Maria@123"
+}
+
+### 2) Login  → retorna o token JWT
+# @name login
+POST {{users}}/usuarios/login
+Content-Type: application/json
+
+{
+  "email": "maria@teste.com",
+  "senha": "Maria@123"
+}
+
+@token = {{login.response.body.token}}
+@usuarioId = {{cadastro.response.body.id}}
+
+### 3) Lista os jogos (seed)  → veja os IDs/preços retornados
+# @name jogos
+GET {{catalog}}/jogos
+Authorization: Bearer {{token}}
+
+# Seed: Hades 49,90 / Hollow Knight 29,90 (Aprovados) | Cyberpunk 2077 149,90 (Rejeitado).
+# A ordem do array pode variar — confira o resultado de #3 e ajuste os índices abaixo se preciso.
+@jogoAprovado = {{jogos.response.body.$[0].id}}
+@jogoRejeitado = {{jogos.response.body.$[2].id}}
+
+### 4) COMPRA APROVADA (Hades 49,90)  → 202 + orderId
+#    → pagamento Aprovado → pedido Aprovado + item na biblioteca
+#    → notifications loga "email-confirmacao-compra"
+# @name compraAprovada
+POST {{catalog}}/compras
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "jogoId": "{{jogoAprovado}}"
+}
+
+### 5) COMPRA REJEITADA (Cyberpunk 2077 149,90 > 100)
+#    → pagamento Rejeitado → pedido Rejeitado (sem item na biblioteca)
+#    → notifications loga "email-pagamento-rejeitado"
+# @name compraRejeitada
+POST {{catalog}}/compras
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "jogoId": "{{jogoRejeitado}}"
+}
+
+### 6) Consulta o pedido aprovado  (aguarde 1-2s após #4 — processamento é assíncrono)
+#    Se o campo do id não for "orderId", veja a resposta de #4 e ajuste.
+GET {{catalog}}/compras/{{compraAprovada.response.body.orderId}}
+Authorization: Bearer {{token}}
+
+### 7) Consulta o pagamento correspondente
+GET {{payments}}/pagamentos/{{compraAprovada.response.body.orderId}}
+Authorization: Bearer {{token}}
+
+### 8) Biblioteca do usuário  → deve conter Hades, não conter Cyberpunk
+GET {{catalog}}/biblioteca/{{usuarioId}}
+Authorization: Bearer {{token}}
+
+################################################################################
+# Fluxo de Admin (jogos são [Authorize Admin])
+# Admin seedado: admin@fcgames.com / Admin@123
+################################################################################
+
+### Login do admin
+# @name loginAdmin
+POST {{users}}/usuarios/login
+Content-Type: application/json
+
+{
+  "email": "admin@fcgames.com",
+  "senha": "Admin@123"
+}
+
+### Cria um novo jogo (somente Admin)
+POST {{catalog}}/jogos
+Authorization: Bearer {{loginAdmin.response.body.token}}
+Content-Type: application/json
+
+{
+  "nome": "Stardew Valley",
+  "descricao": "Fazendinha relaxante",
+  "preco": 24.90
+}
+
+################################################################################
+# Health checks
+################################################################################
+
+### users
+GET {{users}}/health
+
+### catalog
+GET {{catalog}}/health
+
+### payments
+GET {{payments}}/health
+
+### notifications
+GET {{notifications}}/health
