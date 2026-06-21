@@ -2,8 +2,9 @@
 # FCGames — fluxo completo de ponta a ponta
 #
 # Use com a extensão "REST Client" (VS Code) ou o HTTP Client (Rider/IntelliJ).
-# Clique em "Send Request" acima de cada bloco, na ordem. Token e IDs são
-# encadeados automaticamente entre as requisições (não precisa copiar nada).
+# Clique em "Send Request" acima de cada bloco, NA ORDEM. O token e os IDs são
+# referenciados automaticamente das respostas anteriores ({{login.response...}}),
+# então você não precisa copiar nada.
 #
 # Pré-requisito: docker compose up (stack completa no ar).
 # Acompanhe os efeitos em: docker compose logs -f notifications-worker
@@ -14,8 +15,7 @@
 @payments = http://localhost:5003
 @notifications = http://localhost:5004
 
-### 1) Cadastra um usuário  → dispara UsuarioCriadoEvento
-#    (catalog cria biblioteca vazia; notifications loga "email-boas-vindas")
+### 1) Cadastra um usuário  -> dispara UsuarioCriadoEvento
 # @name cadastro
 POST {{users}}/usuarios
 Content-Type: application/json
@@ -26,7 +26,7 @@ Content-Type: application/json
   "senha": "Maria@123"
 }
 
-### 2) Login  → retorna o token JWT
+### 2) Login  -> retorna o token JWT
 # @name login
 POST {{users}}/usuarios/login
 Content-Type: application/json
@@ -36,58 +36,48 @@ Content-Type: application/json
   "senha": "Maria@123"
 }
 
-@token = {{login.response.body.token}}
-@usuarioId = {{cadastro.response.body.id}}
-
-### 3) Lista os jogos (seed)  → veja os IDs/preços retornados
+### 3) Lista os jogos (seed)  -> veja os IDs/precos retornados
 # @name jogos
 GET {{catalog}}/jogos
-Authorization: Bearer {{token}}
+Authorization: Bearer {{login.response.body.$.token}}
 
-# Seed: Hades 49,90 / Hollow Knight 29,90 (Aprovados) | Cyberpunk 2077 149,90 (Rejeitado).
-# A ordem do array pode variar — confira o resultado de #3 e ajuste os índices abaixo se preciso.
-@jogoAprovado = {{jogos.response.body.$[0].id}}
-@jogoRejeitado = {{jogos.response.body.$[2].id}}
-
-### 4) COMPRA APROVADA (Hades 49,90)  → 202 + orderId
-#    → pagamento Aprovado → pedido Aprovado + item na biblioteca
-#    → notifications loga "email-confirmacao-compra"
+### 4) COMPRA APROVADA (Hades 49,90)  -> 202 + orderId
+#    Ajuste o indice [0] se Hades nao for o primeiro da lista em #3.
 # @name compraAprovada
 POST {{catalog}}/compras
-Authorization: Bearer {{token}}
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
-  "jogoId": "{{jogoAprovado}}"
+  "jogoId": "{{jogos.response.body.$[0].id}}"
 }
 
 ### 5) COMPRA REJEITADA (Cyberpunk 2077 149,90 > 100)
-#    → pagamento Rejeitado → pedido Rejeitado (sem item na biblioteca)
-#    → notifications loga "email-pagamento-rejeitado"
+#    Ajuste o indice [2] se Cyberpunk nao for o terceiro da lista em #3.
 # @name compraRejeitada
 POST {{catalog}}/compras
-Authorization: Bearer {{token}}
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
-  "jogoId": "{{jogoRejeitado}}"
+  "jogoId": "{{jogos.response.body.$[2].id}}"
 }
 
-### 6) Consulta o pedido aprovado  (aguarde 1-2s após #4 — processamento é assíncrono)
-#    Se o campo do id não for "orderId", veja a resposta de #4 e ajuste.
-GET {{catalog}}/compras/{{compraAprovada.response.body.orderId}}
-Authorization: Bearer {{token}}
+### 6) Consulta o pedido aprovado  (aguarde 1-2s apos #4 — processamento e assincrono)
+#    Se o campo do id nao for "orderId", veja a resposta de #4 e ajuste.
+GET {{catalog}}/compras/{{compraAprovada.response.body.$.orderId}}
+Authorization: Bearer {{login.response.body.$.token}}
 
 ### 7) Consulta o pagamento correspondente
-GET {{payments}}/pagamentos/{{compraAprovada.response.body.orderId}}
-Authorization: Bearer {{token}}
+GET {{payments}}/pagamentos/{{compraAprovada.response.body.$.orderId}}
+Authorization: Bearer {{login.response.body.$.token}}
 
-### 8) Biblioteca do usuário  → deve conter Hades, não conter Cyberpunk
-GET {{catalog}}/biblioteca/{{usuarioId}}
-Authorization: Bearer {{token}}
+### 8) Biblioteca do usuario  -> deve conter Hades, nao conter Cyberpunk
+GET {{catalog}}/biblioteca/{{cadastro.response.body.$.id}}
+Authorization: Bearer {{login.response.body.$.token}}
 
 ################################################################################
-# Fluxo de Admin (jogos são [Authorize Admin])
+# Fluxo de Admin (jogos sao [Authorize Admin])
 # Admin seedado: admin@fcgames.com / Admin@123
 ################################################################################
 
@@ -103,7 +93,7 @@ Content-Type: application/json
 
 ### Cria um novo jogo (somente Admin)
 POST {{catalog}}/jogos
-Authorization: Bearer {{loginAdmin.response.body.token}}
+Authorization: Bearer {{loginAdmin.response.body.$.token}}
 Content-Type: application/json
 
 {
