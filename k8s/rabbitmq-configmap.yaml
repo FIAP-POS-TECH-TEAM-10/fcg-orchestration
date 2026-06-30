@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rabbitmq-config
+  namespace: fcgames
+data:
+  host: "rabbitmq"
+  port: "5672"
+  management-port: "15672"

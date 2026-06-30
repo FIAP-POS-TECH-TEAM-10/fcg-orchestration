@@ -149,7 +149,109 @@ docker volume ls                          # ver volumes de dados (prefixo fcgame
 
 ---
 
-## 8. Troubleshooting
+## 8. Deploy no Kubernetes
+
+### Estrutura dos Manifestos
+
+Cada microsserviço tem sua pasta `/k8s` com os manifestos Kubernetes:
+
+```
+fcg-orchestration/k8s/     ← Namespace + RabbitMQ (infraestrutura)
+fcg-users-api/k8s/         ← Users API
+fcg-catalog-api/k8s/       ← Catalog API + Worker
+fcg-payments-api/k8s/      ← Payments API + Worker
+fcg-notifications-api/k8s/ ← Notifications Worker
+```
+
+### Deploy Rápido
+
+```bash
+# A partir do diretório fcg-orchestration
+
+# Windows PowerShell
+.\k8s\deploy.ps1
+
+# Linux/Mac
+chmod +x k8s/deploy.sh
+./k8s/deploy.sh
+```
+
+### Deploy Manual (passo a passo)
+
+```bash
+# 1. Buildar as imagens Docker primeiro
+cd ../fcg-users-api
+docker build -t fcg-users-api:latest .
+
+cd ../fcg-catalog-api
+docker build -t fcg-catalog-api:latest -f Dockerfile .
+docker build -t fcg-catalog-worker:latest -f Dockerfile.worker .
+
+cd ../fcg-payments-api
+docker build -t fcg-payments-api:latest -f Dockerfile .
+docker build -t fcg-payments-worker:latest -f Dockerfile.worker .
+
+cd ../fcg-notifications-api
+docker build -t fcg-notifications-worker:latest .
+
+# 2. Aplicar manifestos em ordem
+cd ../fcg-orchestration
+
+kubectl apply -f k8s/                           # Namespace + RabbitMQ
+kubectl wait --for=condition=ready pod -l app=rabbitmq -n fcgames --timeout=300s
+
+kubectl apply -f ../fcg-users-api/k8s/          # Users API
+kubectl apply -f ../fcg-catalog-api/k8s/        # Catalog API + Worker
+kubectl apply -f ../fcg-payments-api/k8s/       # Payments API + Worker
+kubectl apply -f ../fcg-notifications-api/k8s/  # Notifications Worker
+
+# 3. Verificar status
+kubectl get pods -n fcgames
+kubectl get services -n fcgames
+```
+
+### 🌐 Acessar os Serviços (Port Forward)
+
+```bash
+# Em terminais separados:
+kubectl port-forward -n fcgames svc/users-api 5001:80
+kubectl port-forward -n fcgames svc/catalog-api 5002:80
+kubectl port-forward -n fcgames svc/payments-api 5003:80
+kubectl port-forward -n fcgames svc/rabbitmq 15672:15672
+```
+
+Agora acesse:
+- http://localhost:5001/swagger - Users API
+- http://localhost:5002/swagger - Catalog API
+- http://localhost:5003/swagger - Payments API
+- http://localhost:15672 - RabbitMQ Management
+
+### Monitoramento
+
+```bash
+# Ver todos os pods
+kubectl get pods -n fcgames
+
+# Logs de um serviço específico
+kubectl logs -n fcgames -l app=users-api -f
+kubectl logs -n fcgames -l app=catalog-worker -f
+kubectl logs -n fcgames -l app=notifications-worker -f
+
+# Descrever um pod
+kubectl describe pod -n fcgames <pod-name>
+
+# Ver eventos
+kubectl get events -n fcgames --sort-by='.lastTimestamp'
+```
+
+### Limpeza
+
+```bash
+# Remover tudo (namespace + todos os recursos)
+kubectl delete namespace fcgames
+```
+
+## 9. Troubleshooting
 
 | Sintoma | Causa provável | Solução |
 |---------|----------------|---------|
@@ -159,11 +261,7 @@ docker volume ls                          # ver volumes de dados (prefixo fcgame
 | Worker sobe antes da API | corrida de migration | Já tratado via `depends_on: condition: service_healthy` |
 | Banco "sujo" entre testes | volume persistido | `docker compose down -v` para zerar |
 | Porta ocupada | outro processo na 5001-5004/5672 | parar o processo ou ajustar a porta no compose |
+| Pods não iniciam no K8s | Imagens não existem localmente | Buildar imagens antes do `kubectl apply` |
+| Worker não consome mensagens | RabbitMQ não está healthy | Aguardar RabbitMQ inicializar completamente |
 
 ---
-
-## 9. Kubernetes (quando aplicável)
-
-Os manifests por serviço ficam em cada repo (`/k8s`). Os manifests globais
-(RabbitMQ, Ingress) ficam em `k8s/` deste repo. Ver a seção 8 do
-[`CLAUDE.md`](../CLAUDE.md).
