@@ -21,9 +21,9 @@ POST {{users}}/usuarios
 Content-Type: application/json
 
 {
-  "nome": "Maria",
-  "email": "maria@teste.com",
-  "senha": "Maria@123"
+  "nome": "rogers",
+  "email": "rogers@teste.com",
+  "senha": "rogers@123"
 }
 
 ### 2) Login  -> retorna o token JWT
@@ -32,8 +32,8 @@ POST {{users}}/usuarios/login
 Content-Type: application/json
 
 {
-  "email": "maria@teste.com",
-  "senha": "Maria@123"
+  "email": "rogers@teste.com",
+  "senha": "rogers@123"
 }
 
 ### 3) Lista os jogos (seed)  -> veja os IDs/precos retornados
@@ -60,7 +60,7 @@ Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
-  "jogoId": "{{jogos.response.body.$[2].id}}"
+  "jogoId": "{{jogos.response.body.$[1].id}}"
 }
 
 ### 6) Consulta o pedido aprovado  (aguarde 1-2s apos #4 — processamento e assincrono)

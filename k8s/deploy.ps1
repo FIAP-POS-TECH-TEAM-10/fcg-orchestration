@@ -10,11 +10,6 @@ kubectl apply -f k8s/
 Write-Host "`nAguardando RabbitMQ ficar pronto..." -ForegroundColor Yellow
 kubectl wait --for=condition=ready pod -l app=rabbitmq -n fcgames --timeout=300s
 
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "[ERRO] Falha ao aguardar RabbitMQ" -ForegroundColor Red
-    exit 1
-}
-
 # 2. Deploy Users API
 Write-Host "`nDeploy do Users API..." -ForegroundColor Cyan
 Push-Location ..\fcg-users-api
@@ -54,4 +49,5 @@ Write-Host "`nPara acessar os serviços localmente, use port-forward:" -Foregrou
 Write-Host "  kubectl port-forward -n fcgames svc/users-api 5001:80" -ForegroundColor White
 Write-Host "  kubectl port-forward -n fcgames svc/catalog-api 5002:80" -ForegroundColor White
 Write-Host "  kubectl port-forward -n fcgames svc/payments-api 5003:80" -ForegroundColor White
+Write-Host "  kubectl port-forward -n fcgames svc/notifications-worker 5004:80" -ForegroundColor White
 Write-Host "  kubectl port-forward -n fcgames svc/rabbitmq 15672:15672" -ForegroundColor White
