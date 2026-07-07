@@ -51,5 +51,4 @@ Write-Host "  kubectl port-forward -n fcgames svc/catalog-api 5002:80" -Foregrou
 Write-Host "  kubectl port-forward -n fcgames svc/payments-api 5003:80" -ForegroundColor White
 Write-Host "  kubectl port-forward -n fcgames svc/notifications-worker 5004:80" -ForegroundColor White
 Write-Host "  kubectl port-forward -n fcgames svc/rabbitmq 5672:5672" -ForegroundColor White
-Write-Host "  kubectl port-forward -n fcgames svc/rabbitmq 15672:15672" -ForegroundColor White
 Write-Host "`nOu execute: .\k8s\port-forward.ps1" -ForegroundColor Cyan
