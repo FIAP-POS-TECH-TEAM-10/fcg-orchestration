@@ -32,7 +32,7 @@ services:
   users-api:
     <<: *dotnet-common
     build:
-      context: ../fcg-users-api
+      context: ../fcg-users-service
       args:
         NUGET_AUTH_TOKEN: ${NUGET_AUTH_TOKEN}
     container_name: fcg-users-api
@@ -60,7 +60,7 @@ services:
   catalog-api:
     <<: *dotnet-common
     build:
-      context: ../fcg-catalog-api
+      context: ../fcg-catalog-service
       args:
         NUGET_AUTH_TOKEN: ${NUGET_AUTH_TOKEN}
     container_name: fcg-catalog-api
@@ -88,7 +88,7 @@ services:
   catalog-worker:
     <<: *dotnet-common
     build:
-      context: ../fcg-catalog-api
+      context: ../fcg-catalog-service
       dockerfile: Dockerfile.worker
       args:
         NUGET_AUTH_TOKEN: ${NUGET_AUTH_TOKEN}
@@ -107,7 +107,7 @@ services:
   payments-api:
     <<: *dotnet-common
     build:
-      context: ../fcg-payments-api
+      context: ../fcg-payments-service
       args:
         NUGET_AUTH_TOKEN: ${NUGET_AUTH_TOKEN}
     container_name: fcg-payments-api
@@ -135,7 +135,7 @@ services:
   payments-worker:
     <<: *dotnet-common
     build:
-      context: ../fcg-payments-api
+      context: ../fcg-payments-service
       dockerfile: Dockerfile.worker
       args:
         NUGET_AUTH_TOKEN: ${NUGET_AUTH_TOKEN}
@@ -154,7 +154,7 @@ services:
   notifications-worker:
     <<: *dotnet-common
     build:
-      context: ../fcg-notifications-api
+      context: ../fcg-notifications-service
       args:
         NUGET_AUTH_TOKEN: ${NUGET_AUTH_TOKEN}
     container_name: fcg-notifications-worker
