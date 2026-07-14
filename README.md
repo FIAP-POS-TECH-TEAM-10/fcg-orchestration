@@ -18,10 +18,10 @@ contratos de referência e documentação. É daqui que você sobe a stack compl
 - Os **5 repositórios clonados como pastas irmãs**:
   ```
   C:\GIT\FIAP\FIAP-POS-TECH-TEAM-10\
-    ├── fcg-users-api
-    ├── fcg-catalog-api
-    ├── fcg-payments-api
-    ├── fcg-notifications-api
+    ├── fcg-users-service
+    ├── fcg-catalog-service
+    ├── fcg-payments-service
+    ├── fcg-notifications-service
     └── fcg-orchestration   ← você roda os comandos daqui
   ```
 
@@ -122,7 +122,7 @@ Suba só o RabbitMQ no Docker e rode o serviço pelo SDK:
 # só o broker
 docker compose up -d rabbitmq
 
-# em outro terminal, no repo do serviço (ex: fcg-catalog-api)
+# em outro terminal, no repo do serviço (ex: fcg-catalog-service)
 export NUGET_AUTH_TOKEN=ghp_...        # (Windows PowerShell: $env:NUGET_AUTH_TOKEN="ghp_...")
 dotnet restore
 dotnet run --project app/src/Fiap.FCGames.Catalogo.Api
@@ -157,10 +157,10 @@ Cada microsserviço tem sua pasta `/k8s` com os manifestos Kubernetes:
 
 ```
 fcg-orchestration/k8s/     ← Namespace + RabbitMQ (infraestrutura)
-fcg-users-api/k8s/         ← Users API
-fcg-catalog-api/k8s/       ← Catalog API + Worker
-fcg-payments-api/k8s/      ← Payments API + Worker
-fcg-notifications-api/k8s/ ← Notifications Worker
+fcg-users-service/k8s/     ← Users API
+fcg-catalog-service/k8s/   ← Catalog API + Worker
+fcg-payments-service/k8s/  ← Payments API + Worker
+fcg-notifications-service/k8s/ ← Notifications Worker
 ```
 
 ### Deploy Rápido
@@ -180,18 +180,18 @@ chmod +x k8s/deploy.sh
 
 ```bash
 # 1. Buildar as imagens Docker primeiro
-cd ../fcg-users-api
+cd ../fcg-users-service
 docker build -t fcg-users-api:latest .
 
-cd ../fcg-catalog-api
+cd ../fcg-catalog-service
 docker build -t fcg-catalog-api:latest -f Dockerfile .
 docker build -t fcg-catalog-worker:latest -f Dockerfile.worker .
 
-cd ../fcg-payments-api
+cd ../fcg-payments-service
 docker build -t fcg-payments-api:latest -f Dockerfile .
 docker build -t fcg-payments-worker:latest -f Dockerfile.worker .
 
-cd ../fcg-notifications-api
+cd ../fcg-notifications-service
 docker build -t fcg-notifications-worker:latest .
 
 # 2. Aplicar manifestos em ordem
@@ -200,10 +200,10 @@ cd ../fcg-orchestration
 kubectl apply -f k8s/                           # Namespace + RabbitMQ
 kubectl wait --for=condition=ready pod -l app=rabbitmq -n fcgames --timeout=300s
 
-kubectl apply -f ../fcg-users-api/k8s/          # Users API
-kubectl apply -f ../fcg-catalog-api/k8s/        # Catalog API + Worker
-kubectl apply -f ../fcg-payments-api/k8s/       # Payments API + Worker
-kubectl apply -f ../fcg-notifications-api/k8s/  # Notifications Worker
+kubectl apply -f ../fcg-users-service/k8s/      # Users API
+kubectl apply -f ../fcg-catalog-service/k8s/    # Catalog API + Worker
+kubectl apply -f ../fcg-payments-service/k8s/   # Payments API + Worker
+kubectl apply -f ../fcg-notifications-service/k8s/  # Notifications Worker
 
 # 3. Verificar status
 kubectl get pods -n fcgames

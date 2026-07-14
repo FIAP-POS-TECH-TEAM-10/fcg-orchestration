@@ -21,28 +21,28 @@ fi
 # 2. Deploy Users API
 echo ""
 echo "Deploy do Users API..."
-cd ../fcg-users-api
+cd ../fcg-users-service
 kubectl apply -f k8s/
 cd ../fcg-orchestration
 
 # 3. Deploy Catalog API + Worker
 echo ""
 echo "Deploy do Catalog API + Worker..."
-cd ../fcg-catalog-api
+cd ../fcg-catalog-service
 kubectl apply -f k8s/
 cd ../fcg-orchestration
 
 # 4. Deploy Payments API + Worker
 echo ""
 echo "Deploy do Payments API + Worker..."
-cd ../fcg-payments-api
+cd ../fcg-payments-service
 kubectl apply -f k8s/
 cd ../fcg-orchestration
 
 # 5. Deploy Notifications Worker
 echo ""
 echo "Deploy do Notifications Worker..."
-cd ../fcg-notifications-api
+cd ../fcg-notifications-service
 kubectl apply -f k8s/
 cd ../fcg-orchestration
 

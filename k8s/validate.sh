@@ -38,8 +38,8 @@ orchestrationPath="k8s"
 ((manifestCount++)); validate_manifest "$orchestrationPath/rabbitmq-service.yaml" "rabbitmq-service.yaml" || hasErrors=true
 
 echo ""
-echo "fcg-users-api/k8s/"
-usersPath="../fcg-users-api/k8s"
+echo "fcg-users-service/k8s/"
+usersPath="../fcg-users-service/k8s"
 ((manifestCount++)); validate_manifest "$usersPath/secret.yaml" "secret.yaml" || hasErrors=true
 ((manifestCount++)); validate_manifest "$usersPath/configmap.yaml" "configmap.yaml" || hasErrors=true
 ((manifestCount++)); validate_manifest "$usersPath/pvc.yaml" "pvc.yaml" || hasErrors=true
@@ -47,8 +47,8 @@ usersPath="../fcg-users-api/k8s"
 ((manifestCount++)); validate_manifest "$usersPath/service.yaml" "service.yaml" || hasErrors=true
 
 echo ""
-echo "fcg-catalog-api/k8s/"
-catalogPath="../fcg-catalog-api/k8s"
+echo "fcg-catalog-service/k8s/"
+catalogPath="../fcg-catalog-service/k8s"
 ((manifestCount++)); validate_manifest "$catalogPath/secret.yaml" "secret.yaml" || hasErrors=true
 ((manifestCount++)); validate_manifest "$catalogPath/configmap.yaml" "configmap.yaml" || hasErrors=true
 ((manifestCount++)); validate_manifest "$catalogPath/pvc.yaml" "pvc.yaml" || hasErrors=true
@@ -57,8 +57,8 @@ catalogPath="../fcg-catalog-api/k8s"
 ((manifestCount++)); validate_manifest "$catalogPath/service.yaml" "service.yaml" || hasErrors=true
 
 echo ""
-echo "fcg-payments-api/k8s/"
-paymentsPath="../fcg-payments-api/k8s"
+echo "fcg-payments-service/k8s/"
+paymentsPath="../fcg-payments-service/k8s"
 ((manifestCount++)); validate_manifest "$paymentsPath/secret.yaml" "secret.yaml" || hasErrors=true
 ((manifestCount++)); validate_manifest "$paymentsPath/configmap.yaml" "configmap.yaml" || hasErrors=true
 ((manifestCount++)); validate_manifest "$paymentsPath/pvc.yaml" "pvc.yaml" || hasErrors=true
@@ -67,8 +67,8 @@ paymentsPath="../fcg-payments-api/k8s"
 ((manifestCount++)); validate_manifest "$paymentsPath/service.yaml" "service.yaml" || hasErrors=true
 
 echo ""
-echo "fcg-notifications-api/k8s/"
-notificationsPath="../fcg-notifications-api/k8s"
+echo "fcg-notifications-service/k8s/"
+notificationsPath="../fcg-notifications-service/k8s"
 ((manifestCount++)); validate_manifest "$notificationsPath/secret.yaml" "secret.yaml" || hasErrors=true
 ((manifestCount++)); validate_manifest "$notificationsPath/configmap.yaml" "configmap.yaml" || hasErrors=true
 ((manifestCount++)); validate_manifest "$notificationsPath/deployment.yaml" "deployment.yaml" || hasErrors=true

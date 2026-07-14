@@ -12,25 +12,25 @@ kubectl wait --for=condition=ready pod -l app=rabbitmq -n fcgames --timeout=300s
 
 # 2. Deploy Users API
 Write-Host "`nDeploy do Users API..." -ForegroundColor Cyan
-Push-Location ..\fcg-users-api
+Push-Location ..\fcg-users-service
 kubectl apply -f k8s/
 Pop-Location
 
 # 3. Deploy Catalog API + Worker
 Write-Host "`nDeploy do Catalog API + Worker..." -ForegroundColor Cyan
-Push-Location ..\fcg-catalog-api
+Push-Location ..\fcg-catalog-service
 kubectl apply -f k8s/
 Pop-Location
 
 # 4. Deploy Payments API + Worker
 Write-Host "`nDeploy do Payments API + Worker..." -ForegroundColor Cyan
-Push-Location ..\fcg-payments-api
+Push-Location ..\fcg-payments-service
 kubectl apply -f k8s/
 Pop-Location
 
 # 5. Deploy Notifications Worker
 Write-Host "`nDeploy do Notifications Worker..." -ForegroundColor Cyan
-Push-Location ..\fcg-notifications-api
+Push-Location ..\fcg-notifications-service
 kubectl apply -f k8s/
 Pop-Location
 

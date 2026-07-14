@@ -21,21 +21,21 @@ Antes de fazer o deploy, você precisa buildar as imagens Docker de cada micross
 
 ```bash
 # Users API
-cd ../fcg-users-api
+cd ../fcg-users-service
 docker build -t fcg-users-api:latest .
 
 # Catalog API e Worker
-cd ../fcg-catalog-api
+cd ../fcg-catalog-service
 docker build -t fcg-catalog-api:latest -f Dockerfile .
 docker build -t fcg-catalog-worker:latest -f Dockerfile.worker .
 
 # Payments API e Worker
-cd ../fcg-payments-api
+cd ../fcg-payments-service
 docker build -t fcg-payments-api:latest -f Dockerfile .
 docker build -t fcg-payments-worker:latest -f Dockerfile.worker .
 
 # Notifications Worker
-cd ../fcg-notifications-api
+cd ../fcg-notifications-service
 docker build -t fcg-notifications-worker:latest .
 ```
 
@@ -58,19 +58,19 @@ kubectl wait --for=condition=ready pod -l app=rabbitmq -n fcgames --timeout=300s
 
 ```bash
 # Users API
-cd ../fcg-users-api
+cd ../fcg-users-service
 kubectl apply -f k8s/
 
 # Catalog API + Worker
-cd ../fcg-catalog-api
+cd ../fcg-catalog-service
 kubectl apply -f k8s/
 
 # Payments API + Worker
-cd ../fcg-payments-api
+cd ../fcg-payments-service
 kubectl apply -f k8s/
 
 # Notifications Worker
-cd ../fcg-notifications-api
+cd ../fcg-notifications-service
 kubectl apply -f k8s/
 ```
 
