@@ -1,0 +1,4 @@
+﻿NUGET_AUTH_TOKEN=ghp_suachavesecretaaqui
+JWT_KEY=uma_chave_super_secreta_de_32_caracteres_no_minimo
+RABBITMQ_USER=guest
+RABBITMQ_PASS=guest
