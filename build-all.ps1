@@ -115,3 +115,11 @@ docker images | Select-String "fcg-" | ForEach-Object { Write-Host "  $_" -Foreg
 Write-Host ""
 Write-Host "Próximo passo: Deploy no Kubernetes" -ForegroundColor Yellow
 Write-Host "  .\k8s\deploy.ps1" -ForegroundColor White
+
+Write-Host "========================================" -ForegroundColor Green
+Write-Host "[TASK] Subir as imagens de obsevabilidade" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Green
+Write-Host ""
+
+Write-Host "Subindo stack de observabilidade..." -ForegroundColor Green
+docker-compose -f fcg-observabilidade-service/docker-compose.observability.yml up -d
