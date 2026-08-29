@@ -29,6 +29,18 @@ $totalImages = 6
 $currentImage = 0
 $startTime = Get-Date
 
+# Copiar para a Users API
+Copy-Item .\nuget.config -Destination ..\fcg-users-service\
+
+# Copiar para a Catalog API/Worker
+Copy-Item .\nuget.config -Destination ..\fcg-catalog-service\
+
+# Copiar para a Payments API/Worker
+Copy-Item .\nuget.config -Destination ..\fcg-payments-service\
+
+# Copiar para a Notifications Worker
+Copy-Item .\nuget.config -Destination ..\fcg-notifications-service\
+
 function Build-Image {
     param(
         [string]$Path,
@@ -122,4 +134,4 @@ Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 
 Write-Host "Subindo stack de observabilidade..." -ForegroundColor Green
-docker-compose -f fcg-observabilidade-service/docker-compose.observability.yml up -d
+docker-compose -f ..\fcg-observabilidade-service/docker-compose.observability.yml up -d
