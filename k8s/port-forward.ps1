@@ -51,6 +51,7 @@ Start-PortForward "payments-api" "5003:80" "Payments API"
 Start-PortForward "notifications-worker" "5004:80" "Notifications Worker"
 Start-PortForward "rabbitmq" "5672:5672" "RabbitMQ AMQP"
 Start-PortForward "rabbitmq" "15672:15672" "RabbitMQ Management UI"
+Start-PortForward "dynamodb-local" "8000:8000" "DynamoDB Local (tabela Jogos)"
 
 Write-Host ""
 Write-Host "Port-forwards ativos:" -ForegroundColor Cyan
@@ -61,6 +62,7 @@ Write-Host "  Notifications:        http://localhost:5004/health" -ForegroundCol
 Write-Host "  RabbitMQ AMQP:        amqp://localhost:5672" -ForegroundColor White
 Write-Host "  RabbitMQ Management:  http://localhost:15672" -ForegroundColor White
 Write-Host "                        (User: admin / Pass: FCGames@2024)" -ForegroundColor DarkGray
+Write-Host "  DynamoDB Local:       http://localhost:8000 (aws dynamodb scan --endpoint-url http://localhost:8000)" -ForegroundColor White
 Write-Host ""
 Write-Host "[ATIVO] Port-forwards em execução. Pressione Ctrl+C para encerrar." -ForegroundColor Green
 Write-Host ""

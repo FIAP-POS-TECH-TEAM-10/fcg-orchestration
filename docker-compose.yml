@@ -29,6 +29,16 @@ services:
       retries: 10
     networks: [fcgames-net]
 
+  # DynamoDB Local: usado só em dev, enquanto a conta AWS real não está provisionada.
+  # A tabela "Jogos" (CatalogAPI) é criada automaticamente pela API na inicialização.
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: fcg-dynamodb-local
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    ports:
+      - "8000:8000"
+    networks: [fcgames-net]
+
   users-api:
     <<: *dotnet-common
     build:
@@ -74,6 +84,10 @@ services:
       RabbitMQ__Password: ${RABBITMQ_PASS:-guest}
       JWT__KEY: ${JWT_KEY}
       JWT__ISSUER: AppFiapFcGames
+      DynamoDb__ServiceUrl: "http://dynamodb-local:8000"
+      DynamoDb__Region: "us-east-1"
+      AWS_ACCESS_KEY_ID: "local"
+      AWS_SECRET_ACCESS_KEY: "local"
     volumes:
       - catalog-data:/data
     healthcheck:
@@ -84,6 +98,8 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+      dynamodb-local:
+        condition: service_started
 
   catalog-worker:
     <<: *dotnet-common
