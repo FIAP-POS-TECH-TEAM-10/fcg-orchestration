@@ -75,6 +75,11 @@ echo "     -> http://localhost:15672"
 kubectl port-forward -n $NAMESPACE svc/rabbitmq 15672:15672 &> /dev/null &
 PIDS+=($!)
 
+echo "[OK] DynamoDB Local (tabela Jogos)"
+echo "     -> http://localhost:8000"
+kubectl port-forward -n $NAMESPACE svc/dynamodb-local 8000:8000 &> /dev/null &
+PIDS+=($!)
+
 echo ""
 echo "Port-forwards ativos:"
 echo "  Users API:            http://localhost:5001/swagger"
@@ -84,6 +89,7 @@ echo "  Notifications:        http://localhost:5004/health"
 echo "  RabbitMQ AMQP:        amqp://localhost:5672"
 echo "  RabbitMQ Management:  http://localhost:15672"
 echo "                        (User: admin / Pass: FCGames@2024)"
+echo "  DynamoDB Local:       http://localhost:8000 (aws dynamodb scan --endpoint-url http://localhost:8000)"
 echo ""
 echo "[ATIVO] Port-forwards em execução. Pressione Ctrl+C para encerrar."
 echo ""
