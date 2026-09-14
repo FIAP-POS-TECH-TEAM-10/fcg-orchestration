@@ -197,11 +197,12 @@ docker build -t fcg-notifications-worker:latest .
 # 2. Aplicar manifestos em ordem
 cd ../fcg-orchestration
 
-kubectl apply -f k8s/                           # Namespace + RabbitMQ
+kubectl apply -f k8s/                           # Namespace + RabbitMQ + DynamoDB Local
 kubectl wait --for=condition=ready pod -l app=rabbitmq -n fcgames --timeout=300s
+kubectl wait --for=condition=ready pod -l app=dynamodb-local -n fcgames --timeout=300s
 
 kubectl apply -f ../fcg-users-service/k8s/      # Users API
-kubectl apply -f ../fcg-catalog-service/k8s/    # Catalog API + Worker
+kubectl apply -f ../fcg-catalog-service/k8s/    # Catalog API + Worker (usa o DynamoDB Local pra entidade Jogo)
 kubectl apply -f ../fcg-payments-service/k8s/   # Payments API + Worker
 kubectl apply -f ../fcg-notifications-service/k8s/  # Notifications Worker
 
@@ -217,7 +218,9 @@ kubectl get services -n fcgames
 kubectl port-forward -n fcgames svc/users-api 5001:80
 kubectl port-forward -n fcgames svc/catalog-api 5002:80
 kubectl port-forward -n fcgames svc/payments-api 5003:80
+kubectl port-forward -n fcgames svc/notifications-worker 5004:80
 kubectl port-forward -n fcgames svc/rabbitmq 15672:15672
+kubectl port-forward -n fcgames svc/dynamodb-local 8000:8000   # inspecionar a tabela Jogos (ex.: aws dynamodb scan --endpoint-url http://localhost:8000)
 ```
 
 Agora acesse:

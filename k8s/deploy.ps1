@@ -4,11 +4,14 @@
 Write-Host "Iniciando deploy do FCGames no Kubernetes..." -ForegroundColor Green
 
 # 1. Criar namespace e infraestrutura
-Write-Host "`nCriando namespace e RabbitMQ..." -ForegroundColor Cyan
+Write-Host "`nCriando namespace, RabbitMQ e DynamoDB Local..." -ForegroundColor Cyan
 kubectl apply -f k8s/
 
 Write-Host "`nAguardando RabbitMQ ficar pronto..." -ForegroundColor Yellow
 kubectl wait --for=condition=ready pod -l app=rabbitmq -n fcgames --timeout=300s
+
+Write-Host "`nAguardando DynamoDB Local ficar pronto..." -ForegroundColor Yellow
+kubectl wait --for=condition=ready pod -l app=dynamodb-local -n fcgames --timeout=300s
 
 # 2. Deploy Users API
 Write-Host "`nDeploy do Users API..." -ForegroundColor Cyan
@@ -51,4 +54,5 @@ Write-Host "  kubectl port-forward -n fcgames svc/catalog-api 5002:80" -Foregrou
 Write-Host "  kubectl port-forward -n fcgames svc/payments-api 5003:80" -ForegroundColor White
 Write-Host "  kubectl port-forward -n fcgames svc/notifications-worker 5004:80" -ForegroundColor White
 Write-Host "  kubectl port-forward -n fcgames svc/rabbitmq 5672:5672" -ForegroundColor White
+Write-Host "  kubectl port-forward -n fcgames svc/dynamodb-local 8000:8000" -ForegroundColor White
 Write-Host "`nOu execute: .\k8s\port-forward.ps1" -ForegroundColor Cyan

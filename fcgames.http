@@ -103,6 +103,28 @@ Content-Type: application/json
 }
 
 ################################################################################
+# Lista de desejos (wishlist) - DynamoDB (partition key UsuarioId, sort key JogoId)
+################################################################################
+
+### Adiciona um jogo aos desejos (usa o usuario logado em #2)
+# @name adicionarDesejo
+POST {{catalog}}/desejos
+Authorization: Bearer {{login.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "jogoId": "{{jogos.response.body.$[0].id}}"
+}
+
+### Lista os desejos do usuario logado
+GET {{catalog}}/desejos
+Authorization: Bearer {{login.response.body.$.token}}
+
+### Remove um jogo dos desejos
+DELETE {{catalog}}/desejos/{{jogos.response.body.$[0].id}}
+Authorization: Bearer {{login.response.body.$.token}}
+
+################################################################################
 # Health checks
 ################################################################################
 

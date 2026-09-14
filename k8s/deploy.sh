@@ -6,7 +6,7 @@ echo "Iniciando deploy do FCGames no Kubernetes..."
 
 # 1. Criar namespace e infraestrutura
 echo ""
-echo "Criando namespace e RabbitMQ..."
+echo "Criando namespace, RabbitMQ e DynamoDB Local..."
 kubectl apply -f k8s/
 
 echo ""
@@ -15,6 +15,15 @@ kubectl wait --for=condition=ready pod -l app=rabbitmq -n fcgames --timeout=300s
 
 if [ $? -ne 0 ]; then
     echo "[ERRO] Falha ao aguardar RabbitMQ"
+    exit 1
+fi
+
+echo ""
+echo "Aguardando DynamoDB Local ficar pronto..."
+kubectl wait --for=condition=ready pod -l app=dynamodb-local -n fcgames --timeout=300s
+
+if [ $? -ne 0 ]; then
+    echo "[ERRO] Falha ao aguardar DynamoDB Local"
     exit 1
 fi
 
@@ -67,3 +76,4 @@ echo "  kubectl port-forward -n fcgames svc/users-api 5001:80"
 echo "  kubectl port-forward -n fcgames svc/catalog-api 5002:80"
 echo "  kubectl port-forward -n fcgames svc/payments-api 5003:80"
 echo "  kubectl port-forward -n fcgames svc/rabbitmq 15672:15672"
+echo "  kubectl port-forward -n fcgames svc/dynamodb-local 8000:8000"
