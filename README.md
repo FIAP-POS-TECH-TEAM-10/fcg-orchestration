@@ -9,6 +9,21 @@ contratos de referência e documentação. É daqui que você sobe a stack compl
 
 ---
 
+## 0. Arquitetura Fase 3 (AWS)
+
+Além da stack local (docker-compose/k8s, seções 1-9 abaixo, usada pra desenvolvimento),
+o projeto tem uma versão rodando na AWS que atende aos pilares da Fase 3:
+
+| Pilar | Implementação | Onde |
+|---|---|---|
+| **API Gateway** | 3 HTTP APIs (v2) — uma por serviço (Users/Catalog/Payments), `HTTP_PROXY` apontando pra EC2 do ECS de cada um | `<repo>/infra/api_gateway.tf` em cada serviço |
+| **Serverless** | Lambda .NET 10 (`provided.al2023`, ARM64) consome a fila SQS de notificações, substituindo o worker 24/7 | `fcg-notifications-lambda` (repo próprio) |
+| **NoSQL** | DynamoDB — tabelas `Jogos` (catálogo) e `Desejos` (wishlist, partition key `UsuarioId`) | `fcg-catalog-service/app/.../Infra/DataProvider/Dynamo` |
+| **Mensageria** | MassTransit com transporte por config (`Messaging:Provider=Sqs` → Amazon SQS/SNS; `RabbitMQ:Host` → RabbitMQ). Users/Catalog/Payments têm Task Role + policy IAM (SQS/SNS auto-provisionados pelo MassTransit) | `infra/ecs.tf` de cada serviço |
+| **Observabilidade** | Prometheus (scrape de Users/Catalog/Payments/Notifications) + Grafana com dashboard provisionado | `fcg-observabilidade-service` |
+
+---
+
 ## 1. Pré-requisitos
 
 - **Docker Desktop** (com Docker Compose v2)
