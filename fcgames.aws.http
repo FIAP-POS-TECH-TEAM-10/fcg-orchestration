@@ -1,0 +1,130 @@
+################################################################################
+# FCGames — fluxo completo de ponta a ponta, rodando na AWS (não local)
+#
+# Usa com a extensão "REST Client" (VS Code) ou o HTTP Client (Rider/IntelliJ).
+# Clique em "Send Request" acima de cada bloco, NA ORDEM. O token e os IDs são
+# referenciados automaticamente das respostas anteriores ({{login.response...}}).
+#
+# Pré-requisito: nenhum — os 3 serviços já estão deployados e saudáveis.
+#   UsersAPI    -> API Gateway -> ECS (fcg-users-cluster)
+#   CatalogAPI  -> API Gateway -> ECS (fcg-catalog-cluster) + Worker (consumer)
+#   PaymentsAPI -> API Gateway -> ECS (fcg-payments-cluster) + Worker (consumer)
+# Mensageria: Amazon SQS + SNS (não RabbitMQ — só local/docker-compose usa RabbitMQ).
+#
+# NotificationsAPI NÃO está deployada na AWS ainda (só local via docker-compose) —
+# não tem passo dela aqui.
+#
+# Como acompanhar a mensageria (a UI não mostra nada — é tudo assíncrono via SQS/SNS):
+#   AWS_PROFILE=fcg-team aws logs tail /ecs/fcg-catalog-service --since 2m --follow
+#   AWS_PROFILE=fcg-team aws logs tail /ecs/fcg-payments-service --since 2m --follow
+#   (procure por "Bus started", "Configured endpoint", "R-FAULT" e as linhas de
+#    Serilog dos consumers — "Pedido {PedidoId} aprovado", etc.)
+################################################################################
+
+@users = https://1ipnp7vn16.execute-api.sa-east-1.amazonaws.com
+@catalog = https://e0wcpyuyna.execute-api.sa-east-1.amazonaws.com
+@payments = https://ke768yj141.execute-api.sa-east-1.amazonaws.com
+
+### 1) Cadastra um usuário  -> publica UsuarioCriadoEvento no SNS
+#    Consumido por: CatalogAPI Worker (cria Biblioteca vazia, idempotente por UsuarioId)
+# @name cadastro
+POST {{users}}/usuarios
+Content-Type: application/json
+
+{
+  "nome": "rogers",
+  "email": "rogers-aws@teste.com",
+  "senha": "rogers@123"
+}
+
+### 2) Login  -> retorna o token JWT
+# @name login
+POST {{users}}/usuarios/login
+Content-Type: application/json
+
+{
+  "email": "rogers-aws@teste.com",
+  "senha": "rogers@123"
+}
+
+### 3) Lista os jogos (seed no DynamoDB)  -> veja os IDs/precos retornados
+# @name jogos
+GET {{catalog}}/jogos
+Authorization: Bearer {{login.response.body.$.token}}
+
+### 4) COMPRA APROVADA (ajuste o índice [0] pra um jogo com preço <= 100)
+#    -> CatalogAPI publica PedidoRealizadoEvento no SNS
+#    -> PaymentsAPI Worker consome, aprova (preço <= 100), publica PagamentoProcessadoEvento
+#    -> CatalogAPI Worker consome, marca Pedido Aprovado + adiciona na Biblioteca
+# @name compraAprovada
+POST {{catalog}}/compras
+Authorization: Bearer {{login.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "jogoId": "{{jogos.response.body.$[0].id}}"
+}
+
+### 5) COMPRA REJEITADA (ajuste o índice [1] pra um jogo com preço > 100)
+# @name compraRejeitada
+POST {{catalog}}/compras
+Authorization: Bearer {{login.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "jogoId": "{{jogos.response.body.$[1].id}}"
+}
+
+### 6) Consulta o pedido aprovado
+#    AGUARDE uns 5-10s após #4 antes de rodar — o ciclo completo (SNS->SQS->Worker
+#    payments->SNS->SQS->Worker catalog) é assíncrono e mais lento que localhost.
+#    Se ainda estiver "Pendente", espere mais um pouco e rode de novo.
+GET {{catalog}}/compras/{{compraAprovada.response.body.$.orderId}}
+Authorization: Bearer {{login.response.body.$.token}}
+
+### 7) Consulta o pagamento correspondente
+GET {{payments}}/pagamentos/{{compraAprovada.response.body.$.orderId}}
+Authorization: Bearer {{login.response.body.$.token}}
+
+### 8) Biblioteca do usuário  -> deve conter o jogo da compra aprovada
+GET {{catalog}}/biblioteca/{{cadastro.response.body.$.id}}
+Authorization: Bearer {{login.response.body.$.token}}
+
+################################################################################
+# Fluxo de Admin (jogos são [Authorize Admin])
+# Admin seedado: admin@fcgames.com / Admin@123
+################################################################################
+
+### Login do admin
+# @name loginAdmin
+POST {{users}}/usuarios/login
+Content-Type: application/json
+
+{
+  "email": "admin@fcgames.com",
+  "senha": "Admin@123"
+}
+
+### Cria um novo jogo (somente Admin)
+POST {{catalog}}/jogos
+Authorization: Bearer {{loginAdmin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "nome": "Stardew Valley",
+  "descricao": "Fazendinha relaxante",
+  "preco": 24.90
+}
+
+################################################################################
+# Health checks
+################################################################################
+
+### users
+GET {{users}}/health
+
+### catalog
+GET {{catalog}}/health
+
+### payments
+GET {{payments}}/health
