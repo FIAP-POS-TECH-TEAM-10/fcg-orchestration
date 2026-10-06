@@ -37,6 +37,7 @@
 | `infra/eks/README.md` | operação, custo, troubleshooting |
 | `scripts/eks-up.sh` | liga o cluster |
 | `scripts/eks-down.sh` | desliga o cluster sem deixar ALB órfão |
+| `.gitattributes` | força LF nos `.sh` |
 | `../CLAUDE.md` (fora do repo) | registrar decisões da Fase 4 parte 1 |
 
 ---
@@ -776,6 +777,7 @@ git commit -m "test(eks): manifest de smoke test (nginx + Ingress ALB)"
 **Files:**
 - Create: `scripts/eks-up.sh`
 - Create: `scripts/eks-down.sh`
+- Create/Modify: `.gitattributes`
 
 - [ ] **Step 1: Criar `scripts/eks-up.sh`**
 
@@ -931,16 +933,27 @@ log "Clusters EKS na conta: ${clusters:-(nenhum)}"
 log "Cluster desligado."
 ```
 
-- [ ] **Step 3: Checar sintaxe e permissão de execução**
+- [ ] **Step 3: Forçar LF nos .sh**
+
+O repo roda com `core.autocrlf` no Windows: sem isso, um checkout no Windows grava os
+scripts com CRLF e o bash quebra (`set: pipefail\r: invalid option`). Criar/acrescentar em
+`.gitattributes` na raiz do repo:
+
+```gitattributes
+*.sh text eol=lf
+```
+
+- [ ] **Step 4: Checar sintaxe e permissão de execução**
 
 Run:
 ```bash
 bash -n scripts/eks-up.sh && bash -n scripts/eks-down.sh && echo OK
+git add .gitattributes
 git add --chmod=+x scripts/eks-up.sh scripts/eks-down.sh
 ```
 Expected: `OK`
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(eks): scripts eks-up.sh e eks-down.sh (liga/desliga sem ALB órfão)"
