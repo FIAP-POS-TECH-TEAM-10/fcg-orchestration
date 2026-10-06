@@ -22,6 +22,9 @@ TF_DIR="$ROOT_DIR/infra/eks"
 
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 
+# AWS CLI no Windows (Git Bash) termina linhas com \r\n — sem isso comparações e ARNs quebram.
+aws() { command aws "$@" | tr -d '\r'; }
+
 account="$(aws sts get-caller-identity --query Account --output text)" || {
   echo "Erro: não autenticou na AWS com o profile '$AWS_PROFILE'."
   exit 1

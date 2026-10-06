@@ -4,8 +4,8 @@
 #
 # Ordem importa: os ALBs são criados pelo AWS Load Balancer Controller, não pelo
 # Terraform. Se o destroy remover o controller antes, o ALB fica órfão (cobrando) e
-# trava a remoção dos security groups. Por isso: apaga Ingress → espera ALBs sumirem
-# → terraform destroy → confere sobras.
+# trava a remoção dos security groups. Por isso: apaga Ingress → espera os ALBs do
+# cluster sumirem → terraform destroy → confere sobras.
 #
 # Sobrevive: ECR, DynamoDB, SQS/SNS, state no S3. Perde: SQLite dos pods e o JWT.
 #
@@ -23,14 +23,31 @@ TF_DIR="$ROOT_DIR/infra/eks"
 
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 
-# ALBs/target groups criados pelo controller sempre têm nome "k8s-...".
+# AWS CLI no Windows (Git Bash) termina linhas com \r\n — sem isso comparações e ARNs quebram.
+aws() { command aws "$@" | tr -d '\r'; }
+
+# ALBs/target groups do LB Controller: nome "k8s-..." E tag elbv2.k8s.aws/cluster=$CLUSTER_NAME
+# (a conta é compartilhada — o prefixo sozinho pegaria recursos de outro cluster).
+# describe-tags aceita no máximo 20 ARNs por chamada — suficiente para este projeto.
+owned_by_cluster() {
+  [ $# -eq 0 ] && return 0
+  aws elbv2 describe-tags --resource-arns "$@" \
+    --query "TagDescriptions[?Tags[?Key=='elbv2.k8s.aws/cluster' && Value=='${CLUSTER_NAME}']].ResourceArn" \
+    --output text
+}
 k8s_albs() {
-  aws elbv2 describe-load-balancers \
-    --query "LoadBalancers[?starts_with(LoadBalancerName, 'k8s-')].LoadBalancerArn" --output text
+  local arns
+  arns="$(aws elbv2 describe-load-balancers \
+    --query "LoadBalancers[?starts_with(LoadBalancerName, 'k8s-')].LoadBalancerArn" --output text)"
+  # shellcheck disable=SC2086
+  owned_by_cluster $arns
 }
 k8s_target_groups() {
-  aws elbv2 describe-target-groups \
-    --query "TargetGroups[?starts_with(TargetGroupName, 'k8s-')].TargetGroupArn" --output text
+  local arns
+  arns="$(aws elbv2 describe-target-groups \
+    --query "TargetGroups[?starts_with(TargetGroupName, 'k8s-')].TargetGroupArn" --output text)"
+  # shellcheck disable=SC2086
+  owned_by_cluster $arns
 }
 
 account="$(aws sts get-caller-identity --query Account --output text)" || {
@@ -44,17 +61,23 @@ fi
 
 # --- 1. Apagar Ingress (o controller remove os ALBs) -----------------------------
 if aws eks describe-cluster --name "$CLUSTER_NAME" >/dev/null 2>&1; then
-  aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$AWS_DEFAULT_REGION" >/dev/null
+  aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$AWS_DEFAULT_REGION" >/dev/null \
+    || log "AVISO: não consegui configurar o kubectl para $CLUSTER_NAME — a checagem de ALBs decide se segue."
   log "Apagando todos os Ingress (o LB Controller remove os ALBs)..."
-  kubectl delete ingress --all -A --timeout=180s
+  kubectl delete ingress --all -A --timeout=180s \
+    || log "AVISO: não consegui apagar os Ingress (cluster inacessível ou controller quebrado) — a checagem de ALBs decide se segue."
 else
   log "Cluster $CLUSTER_NAME não existe — pulando limpeza de Ingress."
 fi
 
-# --- 2. Esperar ALBs sumirem (até 5 min) -----------------------------------------
-log "Aguardando ALBs k8s-* serem removidos..."
+# --- 2. Esperar ALBs do cluster sumirem (até 5 min) ------------------------------
+log "Aguardando ALBs do cluster $CLUSTER_NAME serem removidos..."
 for _ in $(seq 1 30); do
-  [ -z "$(k8s_albs)" ] && break
+  if out="$(k8s_albs)"; then
+    [ -z "$out" ] && break
+  else
+    log "AVISO: falha consultando ALBs, tentando de novo..."
+  fi
   sleep 10
 done
 remaining="$(k8s_albs)"

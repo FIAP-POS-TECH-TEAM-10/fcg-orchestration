@@ -31,7 +31,7 @@ Para usar outro profile: `AWS_PROFILE=meu-profile ./scripts/eks-up.sh`.
 | Recurso | Detalhe |
 |---|---|
 | Cluster `fcg-eks` | Kubernetes 1.36, VPC default, subnets públicas (sem NAT) |
-| Node group | 1× t3.medium (AL2023). 2 nodes: `terraform apply -var node_desired_size=2` |
+| Node group | 1× t3.medium (AL2023). 2 nodes: `TF_VAR_node_desired_size=2 ./scripts/eks-up.sh` |
 | Addons | vpc-cni, coredns, kube-proxy, eks-pod-identity-agent, metrics-server |
 | AWS Load Balancer Controller | Ingress `ingressClassName: alb` → ALB internet-facing |
 | Namespace `fcgames` | onde os serviços rodam |
@@ -56,6 +56,8 @@ kubectl delete -f infra/eks/manifests/smoke-test.yaml
 |---|---|
 | `error: You must be logged in to the server (Unauthorized)` | seu ARN não está em `admin_principal_arns` |
 | `eks-up.sh` falhou no meio | rode de novo — o Terraform continua de onde parou |
-| `eks-down.sh` parou com "ainda existem ALBs" | `kubectl get ingress -A`; logs: `kubectl logs -n kube-system deploy/aws-load-balancer-controller` |
+| `eks-down.sh` parou com "ainda existem ALBs do cluster" | `kubectl get ingress -A`; logs: `kubectl logs -n kube-system deploy/aws-load-balancer-controller` |
+| `eks-down.sh` com AVISO de cluster inacessível / parou com ALBs restantes | se os ALBs do cluster realmente já sumiram (`aws elbv2 describe-load-balancers`), rode `cd infra/eks && terraform destroy` manualmente |
+| Service `type: LoadBalancer` | também cria um NLB `k8s-...` — apague (`kubectl delete svc <nome>`) antes do `eks-down.sh` |
 | Ingress sem ADDRESS | `kubectl describe ingress <nome>` — normalmente subnet sem tag ou controller sem permissão |
 | Versão do k8s entrou em extended support (US$ 0,60/h) | subir `kubernetes_version` em `variables.tf` |
