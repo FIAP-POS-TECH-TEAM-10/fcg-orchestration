@@ -7,7 +7,8 @@ Design: [`docs/superpowers/specs/2026-10-06-eks-cluster-design.md`](../../docs/s
 
 ## Custo
 
-~**US$ 0,20/h** ligado (control plane US$ 0,10 + 1× t3.medium ~0,07 + ALB ~0,03).
+~**US$ 0,20/h** ligado (control plane US$ 0,10 + 2× t3.small ~0,07 + ALB ~0,03).
+A conta está no **plano FREE** da AWS: o custo sai dos créditos (`aws freetier get-account-plan-state --region us-east-1`).
 EKS não tem free tier. **Sempre rode o `eks-down.sh` ao terminar.**
 
 ## Pré-requisitos
@@ -31,7 +32,7 @@ Para usar outro profile: `AWS_PROFILE=meu-profile ./scripts/eks-up.sh`.
 | Recurso | Detalhe |
 |---|---|
 | Cluster `fcg-eks` | Kubernetes 1.36, VPC default, subnets públicas (sem NAT) |
-| Node group | 1× t3.medium (AL2023). 2 nodes: `TF_VAR_node_desired_size=2 ./scripts/eks-up.sh` |
+| Node group | 2× t3.small (AL2023). O plano FREE só aceita tipos free-tier-eligible (t3.medium é recusado). Mudar quantidade: `TF_VAR_node_desired_size=3 ./scripts/eks-up.sh` |
 | Addons | vpc-cni, coredns, kube-proxy, eks-pod-identity-agent, metrics-server |
 | AWS Load Balancer Controller | Ingress `ingressClassName: alb` → ALB internet-facing |
 | Namespace `fcgames` | onde os serviços rodam |
@@ -60,4 +61,6 @@ kubectl delete -f infra/eks/manifests/smoke-test.yaml
 | `eks-down.sh` com AVISO de cluster inacessível / parou com ALBs restantes | se os ALBs do cluster realmente já sumiram (`aws elbv2 describe-load-balancers`), rode `cd infra/eks && terraform destroy` manualmente |
 | Service `type: LoadBalancer` | também cria um NLB `k8s-...` — apague (`kubectl delete svc <nome>`) antes do `eks-down.sh` |
 | Ingress sem ADDRESS | `kubectl describe ingress <nome>` — normalmente subnet sem tag ou controller sem permissão |
+| Node group preso em CREATING | `aws autoscaling describe-scaling-activities` no ASG `eks-default-*` — "not eligible for Free Tier" = tipo de instância fora do plano FREE |
+| `kubectl top` → "Metrics API not available" | regra do SG de node para a porta 10251 (metrics-server) faltando — ver `eks.tf` |
 | Versão do k8s entrou em extended support (US$ 0,60/h) | subir `kubernetes_version` em `variables.tf` |

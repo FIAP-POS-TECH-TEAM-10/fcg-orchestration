@@ -36,7 +36,7 @@ A migração foi dividida em 3 sub-projetos, cada um com spec → plano → impl
 | Local | `fcg-orchestration/infra/eks/`, state `s3://fiap-tech-challenge-tfstate-123456-915153720516-sa-east-1-an/eks/terraform.tfstate`, lock `fiap-tech-challenge-tflocks` | repo novo |
 | Cluster | 1 cluster compartilhado `fcg-eks`, Kubernetes **1.36** (standard support até 2027-08; extended custa US$ 0,60/h) | cluster por serviço |
 | Rede | VPC default, 3 subnets públicas (sa-east-1a/b/c), sem NAT Gateway | VPC dedicada + NAT (~US$ 35/mês) |
-| Nodes | 1 managed node group, **1× `t3.medium`** on-demand, AL2023; min 1 / max 3; `desired` em variável | 2× t3.medium; Spot (interrupção na gravação) |
+| Nodes | 1 managed node group, **2× `t3.small`** on-demand, AL2023; min 1 / max 3; `desired` em variável. *Revisado no ciclo real:* a conta está no **plano FREE da AWS** (créditos, até 2027-02), que só lança tipos free-tier-eligible — `t3.medium` é recusado | 1× t3.medium (bloqueado pelo plano FREE); 1× c7i-flex.large (~2× o custo); Spot |
 | Exposição | AWS Load Balancer Controller (Helm, 1 réplica) → 1 ALB por Ingress | ingress-nginx (fim de suporte); Service LoadBalancer por serviço (3× custo) |
 | Segredos | Terraform gera JWT aleatório (64 chars) → `kubernetes_secret` `fcg-jwt` no namespace `fcgames` | External Secrets + Secrets Manager (complexidade para 1 segredo); Secret criado pelo pipeline |
 | IAM dos apps | Pod Identity: 1 role por serviço ligada às ServiceAccounts `users-api`, `catalog-api`, `payments-api` | access key em Secret; permissões na role do node |
@@ -68,7 +68,9 @@ fcg-orchestration/
 ```
 
 **Addons EKS:** `vpc-cni` e `eks-pod-identity-agent` (antes do node), `kube-proxy`,
-`coredns`, `metrics-server` (habilita `kubectl top` e o HPA da parte 2).
+`coredns`, `metrics-server` (habilita `kubectl top` e o HPA da parte 2). O metrics-server do
+addon escuta na porta **10251** — o SG de node ganha uma regra extra liberando 10251 a partir do
+control plane (o módulo só libera 10250).
 
 **Permissões por serviço** (copiadas das Task Roles do ECS atual):
 
@@ -116,12 +118,12 @@ script para com o erro; rodar `eks-down.sh` de novo. Nunca apagar o state.
 | Item | US$/h |
 |---|---|
 | Control plane EKS | 0,10 |
-| 1× t3.medium | ~0,07 |
+| 2× t3.small | ~0,07 |
 | ALB (quando houver Ingress) | ~0,03 |
 | IPs públicos IPv4 | ~0,01 |
 | **Total** | **~0,20** |
 
-40 h ligadas no total ≈ US$ 8.
+40 h ligadas no total ≈ US$ 8 — debitados dos créditos do plano FREE (US$ 147 em 2026-10-06).
 
 ## Validação
 

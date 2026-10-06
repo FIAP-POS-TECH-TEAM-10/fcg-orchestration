@@ -32,6 +32,20 @@ module "eks" {
     metrics-server         = {} # `kubectl top` e HPA (parte 2)
   }
 
+  # O addon metrics-server escuta em 10251 (não 10250) e o SG de node do módulo só libera
+  # 10250 vindo do control plane — sem isso o APIService metrics.k8s.io dá timeout
+  # (`kubectl top` → "Metrics API not available", e o HPA não funciona).
+  node_security_group_additional_rules = {
+    ingress_cluster_metrics_server = {
+      description                   = "Control plane para metrics-server"
+      protocol                      = "tcp"
+      from_port                     = 10251
+      to_port                       = 10251
+      type                          = "ingress"
+      source_cluster_security_group = true
+    }
+  }
+
   eks_managed_node_groups = {
     default = {
       ami_type       = "AL2023_x86_64_STANDARD"

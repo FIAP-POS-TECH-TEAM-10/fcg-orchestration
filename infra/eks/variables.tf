@@ -23,16 +23,17 @@ variable "namespace" {
 
 variable "node_instance_type" {
   type = string
-  # t3.micro não serve: limite de ENI/IP = 4 pods por node (os addons já ocupam isso).
-  # t3.medium aceita 17 pods por node.
-  default = "t3.medium"
+  # A conta está no plano FREE da AWS: o EC2 só lança tipos "free-tier-eligible"
+  # (t3.micro/small, t4g.micro/small, c7i-flex.large, m7i-flex.large) — t3.medium é recusado
+  # ("not eligible for Free Tier") e o node group fica preso em CREATING.
+  # t3.micro não serve (4 pods/node). t3.small = 11 pods/node, 2 GB.
+  default = "t3.small"
 }
 
 variable "node_desired_size" {
   type = number
-  # 1 node = menor custo. Subir para 2 (`-var node_desired_size=2`) só se quiser mostrar
-  # pods distribuídos no vídeo.
-  default = 1
+  # 2× t3.small = 22 pods (addons ocupam ~10) pelo mesmo custo de 1 t3.medium.
+  default = 2
 }
 
 variable "admin_principal_arns" {
