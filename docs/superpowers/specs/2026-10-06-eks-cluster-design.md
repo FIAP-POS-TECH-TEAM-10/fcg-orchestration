@@ -55,7 +55,8 @@ fcg-orchestration/
     eks.tf             module "eks", addons, node group, access entries, namespace fcgames,
                        inline policy eks:DescribeCluster na role do GitHub
     lb-controller.tf   role Pod Identity + helm_release aws-load-balancer-controller
-    workload-iam.tf    roles Pod Identity por serviço (for_each) + associações
+    workload-iam.tf    roles Pod Identity por serviço (for_each) + associações + ServiceAccounts
+                       (criadas pelo Terraform; a parte 2 só referencia pelo nome)
     secrets.tf         random_password + kubernetes_secret fcg-jwt
     outputs.tf         cluster_name, comando update-kubeconfig, ARNs das roles
     manifests/
@@ -86,7 +87,7 @@ de busca definir o domínio.
 **`scripts/eks-up.sh`** (~15–20 min)
 1. Valida a identidade AWS (`aws sts get-caller-identity`) e imprime aviso de custo
    (~US$ 0,20/h, "rode eks-down.sh ao terminar").
-2. `terraform -chdir=infra/eks init` + `apply`.
+2. `terraform init` + `apply` em `infra/eks`.
 3. `aws eks update-kubeconfig --name fcg-eks --region sa-east-1`.
 4. Mostra `kubectl get nodes` e `kubectl get pods -A`.
 5. (Parte 2 adiciona o deploy dos serviços aqui.)
@@ -94,10 +95,10 @@ de busca definir o domínio.
 **`scripts/eks-down.sh`** (~10–15 min)
 1. `kubectl delete ingress --all -A` — o ALB é criado pelo controller, não pelo Terraform;
    se o controller for destruído antes, o ALB fica órfão cobrando e trava os security groups.
-2. Espera até nenhum load balancer com tag `elbv2.k8s.aws/cluster=fcg-eks` existir
-   (timeout 5 min; se estourar, aborta sem destroy e mostra o que sobrou).
-3. `terraform -chdir=infra/eks destroy`.
-4. Checagem final: lista ALBs/target groups remanescentes com a tag e imprime o comando
+2. Espera até nenhum load balancer com nome `k8s-*` existir (convenção de nome do
+   LB Controller; timeout 5 min; se estourar, aborta sem destroy e mostra o que sobrou).
+3. `terraform destroy` em `infra/eks`.
+4. Checagem final: lista ALBs/target groups `k8s-*` remanescentes e imprime o comando
    para removê-los.
 
 Os dois scripts usam `AWS_PROFILE=${AWS_PROFILE:-fcg-team}` e `set -euo pipefail`, em bash
@@ -138,7 +139,7 @@ Ciclo de teste real (um único ciclo up → testes → down):
 6. `kubectl get secret fcg-jwt -n fcgames` existe.
 7. Pod temporário com ServiceAccount `catalog-api` no namespace `fcgames` executa
    `aws sts get-caller-identity` e recebe a role do catalog.
-8. `eks-down.sh` termina; `aws eks list-clusters` vazio; nenhum ALB com a tag do cluster;
+8. `eks-down.sh` termina; `aws eks list-clusters` vazio; nenhum ALB `k8s-*`;
    tags `kubernetes.io/role/elb` removidas das subnets.
 
 ## Definição de pronto
