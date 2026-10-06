@@ -38,14 +38,14 @@ owned_by_cluster() {
 k8s_albs() {
   local arns
   arns="$(aws elbv2 describe-load-balancers \
-    --query "LoadBalancers[?starts_with(LoadBalancerName, 'k8s-')].LoadBalancerArn" --output text)"
+    --query "LoadBalancers[?starts_with(LoadBalancerName, 'k8s-')].LoadBalancerArn" --output text)" || return 1
   # shellcheck disable=SC2086
   owned_by_cluster $arns
 }
 k8s_target_groups() {
   local arns
   arns="$(aws elbv2 describe-target-groups \
-    --query "TargetGroups[?starts_with(TargetGroupName, 'k8s-')].TargetGroupArn" --output text)"
+    --query "TargetGroups[?starts_with(TargetGroupName, 'k8s-')].TargetGroupArn" --output text)" || return 1
   # shellcheck disable=SC2086
   owned_by_cluster $arns
 }
