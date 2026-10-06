@@ -22,8 +22,10 @@ resource "helm_release" "aws_lb_controller" {
   name       = "aws-load-balancer-controller"
   repository = "https://aws.github.io/eks-charts"
   chart      = "aws-load-balancer-controller"
-  namespace  = "kube-system"
-  wait       = true
+  # Fixado: a policy IAM do módulo eks-pod-identity cobre todas as ações do iam_policy.json da v3.6.0.
+  version   = "3.6.0"
+  namespace = "kube-system"
+  wait      = true
 
   values = [yamlencode({
     clusterName  = module.eks.cluster_name
