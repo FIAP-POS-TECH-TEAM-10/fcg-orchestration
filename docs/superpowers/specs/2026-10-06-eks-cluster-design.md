@@ -132,7 +132,7 @@ Antes de gastar: `terraform fmt -check`, `terraform validate`, `terraform plan`.
 Ciclo de teste real (um único ciclo up → testes → down):
 
 1. `eks-up.sh` termina sem erro.
-2. `kubectl get nodes` → 1 node `Ready`.
+2. `kubectl get nodes` → 2 nodes `Ready`.
 3. `kubectl get pods -A` → coredns, aws-node, kube-proxy, eks-pod-identity-agent,
    metrics-server, aws-load-balancer-controller em `Running`.
 4. `kubectl top nodes` responde.

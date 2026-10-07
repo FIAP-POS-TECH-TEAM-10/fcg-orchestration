@@ -31,7 +31,7 @@ resource "helm_release" "aws_lb_controller" {
     clusterName  = module.eks.cluster_name
     region       = var.aws_region
     vpcId        = data.aws_vpc.default.id
-    replicaCount = 1 # 1 node só — 2 réplicas ocupariam pod slot à toa
+    replicaCount = 1 # 1 réplica basta pra demo — economiza pod slot (t3.small = 11 pods/node)
     serviceAccount = {
       create = true
       name   = "aws-load-balancer-controller"

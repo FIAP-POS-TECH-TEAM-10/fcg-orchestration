@@ -2,7 +2,7 @@
 # ==============================================================================
 # FCGames — LIGA o cluster EKS (fcg-eks) a partir do Terraform em infra/eks.
 #
-# Custo: ~US$ 0,20/h enquanto ligado (control plane + 1 t3.medium + ALB).
+# Custo: ~US$ 0,20/h enquanto ligado (control plane + 2 t3.small + ALB).
 # SEMPRE rode scripts/eks-down.sh ao terminar a sessão.
 #
 # Pré-requisitos: aws CLI v2, terraform >= 1.5, kubectl; profile AWS com acesso à

@@ -1,5 +1,7 @@
 # Cluster EKS (Fase 4 — Parte 1) Implementation Plan
 
+> **Revisado após execução (2026-10-06):** o plano abaixo cita 1× t3.medium; a implementação final usa **2× t3.small** (a conta está no plano FREE da AWS) e uma regra extra de SG para a porta 10251 do metrics-server. A fonte de verdade é o spec e o código em `infra/eks/`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Criar, em Terraform, um cluster EKS liga/desliga (`fcg-eks`) com 1 node, ALB via AWS Load Balancer Controller, Pod Identity para os 3 serviços e JWT em Secret do k8s — mais scripts `eks-up.sh`/`eks-down.sh`.
