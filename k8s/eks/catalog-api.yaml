@@ -60,17 +60,23 @@ spec:
               cpu: 50m
             limits:
               memory: 384Mi
+          # Startup lento (migração + DynamoDB + seed antes do Kestrel escutar): liveness e
+          # readiness só começam depois que este passar (até 150 s).
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
           readinessProbe:
             httpGet:
               path: /health
               port: http
-            initialDelaySeconds: 10
             periodSeconds: 5
           livenessProbe:
             httpGet:
               path: /health/live
               port: http
-            initialDelaySeconds: 20
             periodSeconds: 10
           lifecycle:
             preStop:

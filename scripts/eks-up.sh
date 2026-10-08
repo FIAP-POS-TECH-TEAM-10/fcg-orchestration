@@ -65,7 +65,7 @@ log "Aplicando os serviços (k8s/eks)..."
 
 for deploy in redis users-api catalog-api payments-api; do
   log "Aguardando rollout de $deploy..."
-  kubectl rollout status "deploy/$deploy" -n fcgames --timeout=300s
+  kubectl rollout status "deploy/$deploy" -n fcgames --timeout=600s
 done
 
 log "Pods:"
@@ -74,7 +74,7 @@ kubectl get pods -n fcgames -o wide
 log "Aguardando o ALB do Ingress (até 5 min)..."
 alb_host=""
 for _ in $(seq 1 30); do
-  alb_host="$(kubectl get ingress fcgames -n fcgames -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
+  alb_host="$(kubectl get ingress fcgames -n fcgames -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' || true)"
   [ -n "$alb_host" ] && break
   sleep 10
 done

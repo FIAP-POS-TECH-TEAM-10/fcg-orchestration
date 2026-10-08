@@ -38,6 +38,7 @@ kubectl rollout restart deploy/users-api -n fcgames  # rolling update sem downti
 
 `maxSurge: 1` / `maxUnavailable: 0` + readiness `/health` + *pod readiness gate* do ALB
 (label no namespace) + `preStop` de 15 s casado com `deregistration_delay` de 15 s no target group.
+No primeiro deploy (Ingress e pods criados juntos) o readiness gate ainda não é injetado — ele vale para os rollouts seguintes (`rollout restart`, pipeline).
 
 ## Troubleshooting
 
