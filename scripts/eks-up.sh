@@ -8,7 +8,7 @@
 # Pré-requisitos: aws CLI v2, terraform >= 1.5, kubectl; profile AWS com acesso à
 # conta do time (915153720516) e listado em admin_principal_arns (infra/eks/variables.tf).
 #
-# Uso: ./scripts/eks-up.sh        (~15-20 min)
+# Uso: ./scripts/eks-up.sh        (~20 min: cluster + serviços de k8s/eks)
 # ==============================================================================
 set -euo pipefail
 
@@ -24,6 +24,9 @@ log() { echo "[$(date +%H:%M:%S)] $*"; }
 
 # AWS CLI no Windows (Git Bash) termina linhas com \r\n — sem isso comparações e ARNs quebram.
 aws() { command aws "$@" | tr -d '\r'; }
+
+# Qualquer falha depois do apply deixa o cluster LIGADO (cobrando) — avisa sempre.
+trap 'echo; echo "ERRO: o eks-up.sh falhou. Se o cluster chegou a ser criado ele está LIGADO e cobrando —"; echo "corrija e rode de novo, ou desligue com ./scripts/eks-down.sh"' ERR
 
 account="$(aws sts get-caller-identity --query Account --output text)" || {
   echo "Erro: não autenticou na AWS com o profile '$AWS_PROFILE'."
@@ -53,7 +56,32 @@ aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$AWS_DEFAULT_REGION" 
 
 log "Nodes:"
 kubectl get nodes -o wide
+
+log "Aplicando os serviços (k8s/eks)..."
+(
+  cd "$ROOT_DIR"
+  kubectl apply -k k8s/eks
+)
+
+for deploy in redis users-api catalog-api payments-api; do
+  log "Aguardando rollout de $deploy..."
+  kubectl rollout status "deploy/$deploy" -n fcgames --timeout=300s
+done
+
 log "Pods:"
-kubectl get pods -A
+kubectl get pods -n fcgames -o wide
+
+log "Aguardando o ALB do Ingress (até 5 min)..."
+alb_host=""
+for _ in $(seq 1 30); do
+  alb_host="$(kubectl get ingress fcgames -n fcgames -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
+  [ -n "$alb_host" ] && break
+  sleep 10
+done
+if [ -z "$alb_host" ]; then
+  echo "AVISO: o Ingress ainda não tem endereço. Veja: kubectl describe ingress fcgames -n fcgames"
+else
+  log "URL pública: http://$alb_host   (o DNS do ALB pode levar 1-2 min para responder)"
+fi
 
 log "Cluster ligado. Lembre: ./scripts/eks-down.sh ao terminar."
