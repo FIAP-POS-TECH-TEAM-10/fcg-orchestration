@@ -94,6 +94,13 @@ module "eks" {
 resource "kubernetes_namespace_v1" "app" {
   metadata {
     name = var.namespace
+
+    labels = {
+      # O LB Controller injeta um readiness gate nos pods deste namespace: o pod só fica
+      # Ready quando o ALB o marca healthy — é o que torna o rolling update sem downtime
+      # com target-type ip (sem isso o pod antigo sai antes do novo receber tráfego).
+      "elbv2.k8s.aws/pod-readiness-gate-inject" = "enabled"
+    }
   }
 
   # Espera access entries/node: sem isso o provider k8s pode chamar a API antes de ter permissão.
