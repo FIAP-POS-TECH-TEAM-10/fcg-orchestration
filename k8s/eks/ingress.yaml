@@ -1,0 +1,62 @@
+# Um ALB (criado pelo AWS Load Balancer Controller) para os 3 serviços, roteando por path.
+# As rotas dos controllers não se repetem entre serviços, então não há rewrite.
+# Quando o /search (OpenSearch) existir no catalog, adicionar a rota aqui.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fcgames
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "10"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    # Casa com o preStop de 15 s dos pods: o ALB para de mandar tráfego antes do pod sair.
+    alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=15
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /usuarios
+            pathType: Prefix
+            backend:
+              service:
+                name: users-api
+                port:
+                  name: http
+          - path: /jogos
+            pathType: Prefix
+            backend:
+              service:
+                name: catalog-api
+                port:
+                  name: http
+          - path: /compras
+            pathType: Prefix
+            backend:
+              service:
+                name: catalog-api
+                port:
+                  name: http
+          - path: /biblioteca
+            pathType: Prefix
+            backend:
+              service:
+                name: catalog-api
+                port:
+                  name: http
+          - path: /desejos
+            pathType: Prefix
+            backend:
+              service:
+                name: catalog-api
+                port:
+                  name: http
+          - path: /pagamentos
+            pathType: Prefix
+            backend:
+              service:
+                name: payments-api
+                port:
+                  name: http
