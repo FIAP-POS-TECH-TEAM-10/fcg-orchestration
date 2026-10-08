@@ -1,0 +1,79 @@
+################################################################################
+# FCGames no EKS — fluxo completo pelo ALB (REST Client / HTTP Client do Rider)
+#
+# 1. ./scripts/eks-up.sh imprime a "URL pública" no final — cole em @base abaixo.
+# 2. Rode os blocos NA ORDEM. Tudo passa pelo mesmo ALB (rotas por path).
+# Para acompanhar a mensageria:
+#   kubectl logs -n fcgames deploy/catalog-api -c worker -f
+#   kubectl logs -n fcgames deploy/payments-api -c worker -f
+################################################################################
+
+@base = http://COLE-AQUI-O-HOST-DO-ALB
+
+### 1) Cadastro -> publica UsuarioCriadoEvento (catalog cria a biblioteca)
+# @name cadastro
+POST {{base}}/usuarios
+Content-Type: application/json
+
+{
+  "nome": "rogers",
+  "email": "rogers-eks@teste.com",
+  "senha": "rogers@123"
+}
+
+### 2) Login -> JWT
+# @name login
+POST {{base}}/usuarios/login
+Content-Type: application/json
+
+{
+  "email": "rogers-eks@teste.com",
+  "senha": "rogers@123"
+}
+
+### 3) Jogos (DynamoDB) — escolha um com preço <= 100 e outro > 100
+# @name jogos
+GET {{base}}/jogos
+Authorization: Bearer {{login.response.body.$.token}}
+
+### 4) Compra APROVADA (ajuste o índice para um jogo com preço <= 100)
+# @name compraAprovada
+POST {{base}}/compras
+Authorization: Bearer {{login.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "jogoId": "{{jogos.response.body.$[0].id}}"
+}
+
+### 5) Compra REJEITADA (ajuste o índice para um jogo com preço > 100)
+# @name compraRejeitada
+POST {{base}}/compras
+Authorization: Bearer {{login.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "jogoId": "{{jogos.response.body.$[1].id}}"
+}
+
+### 6) Pedido aprovado (aguarde ~5 s — SNS/SQS é assíncrono)
+GET {{base}}/compras/{{compraAprovada.response.body.$.orderId}}
+Authorization: Bearer {{login.response.body.$.token}}
+
+### 7) Pagamento do pedido aprovado
+GET {{base}}/pagamentos/{{compraAprovada.response.body.$.orderId}}
+Authorization: Bearer {{login.response.body.$.token}}
+
+### 8) Biblioteca -> deve conter o jogo aprovado
+GET {{base}}/biblioteca/{{cadastro.response.body.$.id}}
+Authorization: Bearer {{login.response.body.$.token}}
+
+### Admin (seed: admin@fcgames.com / Admin@123)
+# @name loginAdmin
+POST {{base}}/usuarios/login
+Content-Type: application/json
+
+{
+  "email": "admin@fcgames.com",
+  "senha": "Admin@123"
+}
