@@ -106,18 +106,3 @@ resource "kubernetes_namespace_v1" "app" {
   # Espera access entries/node: sem isso o provider k8s pode chamar a API antes de ter permissão.
   depends_on = [module.eks]
 }
-
-# `aws eks update-kubeconfig` no runner do GitHub precisa de eks:DescribeCluster.
-resource "aws_iam_role_policy" "github_deploy_eks" {
-  name = "fcg-eks-deploy"
-  role = data.aws_iam_role.github_deploy.name
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["eks:DescribeCluster"]
-      Resource = module.eks.cluster_arn
-    }]
-  })
-}
