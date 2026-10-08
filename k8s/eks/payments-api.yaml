@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments-api
+  labels:
+    app: payments-api
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: payments-api
+  template:
+    metadata:
+      labels:
+        app: payments-api
+    spec:
+      serviceAccountName: payments-api # Pod Identity → SQS/SNS
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: data
+          emptyDir: {} # SQLite compartilhado entre api e worker (Pagamentos)
+      containers:
+        - name: api
+          image: 915153720516.dkr.ecr.sa-east-1.amazonaws.com/fcg-payments-service:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 5003
+          envFrom:
+            - configMapRef:
+                name: fcg-config
+          env:
+            - name: ASPNETCORE_URLS
+              value: http://+:5003
+            - name: ConnectionStrings__DefaultConnection
+              value: Data Source=/data/payments.db
+            - name: JWT__KEY
+              valueFrom:
+                secretKeyRef:
+                  name: fcg-jwt
+                  key: jwt-key
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 50m
+            limits:
+              memory: 384Mi
+          # Startup lento (migração + DynamoDB + seed antes do Kestrel escutar): liveness e
+          # readiness só começam depois que este passar (até 150 s).
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 10
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 15
+        # Consumer do PedidoRealizadoEvento (simula pagamento, publica PagamentoProcessado).
+        - name: worker
+          image: 915153720516.dkr.ecr.sa-east-1.amazonaws.com/fcg-payments-service:worker-latest
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: fcg-config
+          env:
+            - name: ConnectionStrings__DefaultConnection
+              value: Data Source=/data/payments.db
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              memory: 96Mi
+              cpu: 25m
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payments-api
+spec:
+  selector:
+    app: payments-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

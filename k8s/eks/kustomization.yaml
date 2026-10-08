@@ -1,0 +1,20 @@
+# Serviços do FCGames no EKS (fcg-eks). Aplicado pelo scripts/eks-up.sh:
+#   kubectl apply -k k8s/eks
+# O namespace, as ServiceAccounts (Pod Identity) e o Secret fcg-jwt vêm do Terraform
+# (infra/eks) — não são declarados aqui.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: fcgames
+
+resources:
+  - redis.yaml
+  - users-api.yaml
+  - catalog-api.yaml
+  - payments-api.yaml
+  - ingress.yaml
+
+# Gera o ConfigMap fcg-config com sufixo de hash: mudar config.env dispara rollout.
+configMapGenerator:
+  - name: fcg-config
+    envs:
+      - config.env

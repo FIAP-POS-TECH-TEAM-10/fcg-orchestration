@@ -10,6 +10,8 @@
 *.userosscache
 *.sln.docstates
 *.env
+# Exceção: config não sensível do Kustomize (k8s/eks) — precisa estar versionado
+!k8s/eks/config.env
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

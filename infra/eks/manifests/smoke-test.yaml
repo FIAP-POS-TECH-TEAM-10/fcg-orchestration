@@ -1,0 +1,61 @@
+# Valida o cluster sem depender dos serviços: nginx atrás de um ALB criado pelo
+# AWS Load Balancer Controller. Remover com `kubectl delete -f` (ou o eks-down.sh apaga
+# todos os Ingress antes do destroy).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smoke-nginx
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smoke-nginx
+  template:
+    metadata:
+      labels:
+        app: smoke-nginx
+    spec:
+      containers:
+        - name: nginx
+          image: public.ecr.aws/nginx/nginx:alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smoke-nginx
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: smoke-nginx
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: smoke-nginx
+  namespace: default
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: smoke-nginx
+                port:
+                  number: 80
