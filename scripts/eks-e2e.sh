@@ -42,6 +42,18 @@ wait_for() {
 }
 
 log "Base: $BASE"
+
+# Logo após o eks-up o ALB acabou de nascer: o DNS leva ~1-3 min para resolver (curl → 000).
+# Espera o login do admin seed responder 200 antes de começar (até 5 min).
+log "0) Aguardando o ALB responder (até 5 min)..."
+for _ in $(seq 1 30); do
+  code="$(curl -s -m 5 -o /dev/null -w '%{http_code}' -X POST "$BASE/usuarios/login" \
+    -H 'Content-Type: application/json' -d '{"email":"admin@fcgames.com","senha":"Admin@123"}' || true)"
+  [ "$code" = "200" ] && break
+  sleep 10
+done
+[ "$code" = "200" ] || fail "ALB não respondeu 200 em 5 min (último código: $code)"
+
 email="e2e-$(date +%s)@teste.com"
 senha="E2e@12345"
 
