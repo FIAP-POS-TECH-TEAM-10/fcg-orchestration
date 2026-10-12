@@ -269,6 +269,31 @@ kubectl get events -n fcgames --sort-by='.lastTimestamp'
 kubectl delete namespace fcgames
 ```
 
+## 8.1 Cluster EKS (AWS) — ligar/desligar pelo GitHub
+
+O cluster `fcg-eks` (Fase 4) **não fica ligado**: custa ~US$ 0,20/h (sai dos créditos da conta).
+Qualquer pessoa do time com acesso de escrita ao repo liga/desliga pela aba **Actions**:
+
+| Workflow | O que faz |
+|---|---|
+| **Ligar cluster EKS** (Run workflow) | `scripts/eks-up.sh` (~20 min): cluster + serviços de `k8s/eks`; opção "testar" roda o `eks-e2e.sh`. O resumo do run mostra a **URL do ALB** |
+| **Desligar cluster EKS** (Run workflow) | `scripts/eks-down.sh` (~12 min): apaga Ingress/ALB e destrói o cluster |
+| **Desligar cluster EKS** (automático) | toda noite às **03:00 (BRT)** — se estiver ligado, desliga; se não, "nada a fazer" |
+
+- Os dois rodam no Environment `aws-eks` (só a branch `main`) com a role `GitHubActions-EKS-Admin` (ver `infra/github-ci/`). Nunca rodam ao mesmo tempo.
+- Também dá para rodar os scripts da própria máquina (`./scripts/eks-up.sh` / `eks-down.sh`, profile `fcg-team`). Se o workflow estiver rodando ao mesmo tempo, o segundo falha com "state locked" — sem dano, é só esperar.
+- Se o "Ligar" falhar no meio, o cluster pode ter ficado ligado: rode o "Desligar".
+
+Criação do Environment (uma vez, precisa de admin no repo):
+
+```bash
+gh api -X PUT repos/FIAP-POS-TECH-TEAM-10/fcg-orchestration/environments/aws-eks \
+  -F "deployment_branch_policy[protected_branches]=false" \
+  -F "deployment_branch_policy[custom_branch_policies]=true"
+gh api -X POST repos/FIAP-POS-TECH-TEAM-10/fcg-orchestration/environments/aws-eks/deployment-branch-policies \
+  -f name=main -f type=branch
+```
+
 ## 9. Troubleshooting
 
 | Sintoma | Causa provável | Solução |
