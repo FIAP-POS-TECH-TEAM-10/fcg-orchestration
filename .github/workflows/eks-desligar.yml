@@ -1,0 +1,67 @@
+# Botão "Desligar cluster EKS" (scripts/eks-down.sh) + desligamento automático toda noite às
+# 03:00 (BRT), caso alguém tenha esquecido o cluster ligado. Com o cluster já desligado não faz nada.
+name: Desligar cluster EKS
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC = 03:00 BRT
+
+# Mesmo grupo do "Ligar cluster EKS": nunca rodam ao mesmo tempo.
+concurrency:
+  group: eks-cluster
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # OIDC com a AWS
+  contents: read
+
+jobs:
+  desligar:
+    name: Desligar cluster (eks-down)
+    runs-on: ubuntu-latest
+    environment: aws-eks # só a branch main pode usar (trust da role exige este environment)
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login na AWS (OIDC → GitHubActions-EKS-Admin)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::915153720516:role/GitHubActions-EKS-Admin
+          role-duration-seconds: 3600
+          aws-region: sa-east-1
+
+      - name: Cluster existe?
+        id: cluster
+        run: |
+          if aws eks describe-cluster --name fcg-eks --query cluster.status --output text 2>err.txt; then
+            echo "existe=true" >> "$GITHUB_OUTPUT"
+          elif grep -q ResourceNotFoundException err.txt; then
+            echo "existe=false" >> "$GITHUB_OUTPUT"
+            echo "### 💤 Nada a fazer: o cluster \`fcg-eks\` já está desligado" >> "$GITHUB_STEP_SUMMARY"
+          else
+            cat err.txt
+            exit 1
+          fi
+
+      - uses: hashicorp/setup-terraform@v3
+        if: steps.cluster.outputs.existe == 'true'
+        with:
+          terraform_wrapper: false
+
+      - name: Desligar (scripts/eks-down.sh)
+        if: steps.cluster.outputs.existe == 'true'
+        run: |
+          set -o pipefail
+          ./scripts/eks-down.sh | tee eks-down.log
+
+      - name: Resumo
+        if: steps.cluster.outputs.existe == 'true'
+        run: |
+          {
+            echo "### 🛑 Cluster \`fcg-eks\` desligado"
+            echo '```'
+            grep -E "Destroy complete|ATENÇÃO|aws elbv2 delete|Clusters EKS" eks-down.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
