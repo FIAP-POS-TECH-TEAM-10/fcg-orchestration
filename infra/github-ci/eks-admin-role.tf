@@ -11,7 +11,7 @@ locals {
 resource "aws_iam_role" "eks_admin" {
   name                 = "GitHubActions-EKS-Admin"
   description          = "Botoes liga/desliga do cluster fcg-eks (fcg-orchestration, environment aws-eks)"
-  max_session_duration = 3600
+  max_session_duration = 7200
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

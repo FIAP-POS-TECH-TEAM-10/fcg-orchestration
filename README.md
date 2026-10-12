@@ -283,6 +283,8 @@ Qualquer pessoa do time com acesso de escrita ao repo liga/desliga pela aba **Ac
 - Os dois rodam no Environment `aws-eks` (só a branch `main`) com a role `GitHubActions-EKS-Admin` (ver `infra/github-ci/`). Nunca rodam ao mesmo tempo.
 - Também dá para rodar os scripts da própria máquina (`./scripts/eks-up.sh` / `eks-down.sh`, profile `fcg-team`). Se o workflow estiver rodando ao mesmo tempo, o segundo falha com "state locked" — sem dano, é só esperar.
 - Se o "Ligar" falhar no meio, o cluster pode ter ficado ligado: rode o "Desligar".
+- O agendamento das 03:00 é a principal proteção contra esquecer o cluster ligado, mas o GitHub **desativa workflows agendados após 60 dias sem atividade no repo** e pode atrasar execuções — confira de vez em quando na aba Actions que o *Desligar cluster EKS* está habilitado.
+- Um cluster criado antes desta mudança (sem o acesso da role do GitHub) não é desligado pelo botão — desligue com o script local.
 
 Criação do Environment (uma vez, precisa de admin no repo):
 
