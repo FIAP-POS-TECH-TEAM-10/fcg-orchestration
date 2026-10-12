@@ -1,0 +1,80 @@
+# Botão "Ligar cluster EKS": cria o cluster fcg-eks + serviços (scripts/eks-up.sh) com a role
+# GitHubActions-EKS-Admin (infra/github-ci). Custa ~US$ 0,20/h — desligue ao terminar; o workflow
+# "Desligar cluster EKS" também roda sozinho toda noite às 03:00 (BRT).
+name: Ligar cluster EKS
+
+on:
+  workflow_dispatch:
+    inputs:
+      testar:
+        description: Rodar o teste ponta a ponta (scripts/eks-e2e.sh) depois de ligar
+        type: boolean
+        default: true
+
+# Ligar e desligar nunca rodam ao mesmo tempo (mesmo grupo nos dois workflows); o segundo espera.
+concurrency:
+  group: eks-cluster
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # OIDC com a AWS
+  contents: read
+
+jobs:
+  ligar:
+    name: Ligar cluster (eks-up)
+    runs-on: ubuntu-latest
+    environment: aws-eks # só a branch main pode usar (trust da role exige este environment)
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login na AWS (OIDC → GitHubActions-EKS-Admin)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::915153720516:role/GitHubActions-EKS-Admin
+          role-duration-seconds: 7200
+          aws-region: sa-east-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+          terraform_version: "~1.15"
+
+      - name: Ligar (scripts/eks-up.sh)
+        id: up
+        run: ./scripts/eks-up.sh
+
+      - name: Teste ponta a ponta (scripts/eks-e2e.sh)
+        id: e2e
+        if: inputs.testar
+        run: ./scripts/eks-e2e.sh
+
+      - name: Resumo
+        if: ${{ !cancelled() }}
+        run: |
+          host="$(kubectl get ingress fcgames -n fcgames -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' || true)"
+          {
+            echo "### ✅ Cluster \`fcg-eks\` ligado"
+            echo "**URL pública:** http://${host:-ainda-sem-endereco}"
+            echo '```'
+            kubectl get pods -n fcgames || true
+            echo '```'
+            echo "💸 Custa ~US\$ 0,20/h. Ao terminar, rode **[Desligar cluster EKS](${{ github.server_url }}/${{ github.repository }}/actions/workflows/eks-desligar.yml)**."
+            echo "🌙 Se ninguém desligar, o desligamento automático roda às 03:00 (BRT)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "Aviso: teste falhou"
+        if: failure() && steps.e2e.outcome == 'failure'
+        run: |
+          {
+            echo "### ⚠️ O cluster ligou, mas o teste ponta a ponta falhou — veja o log do passo de teste. O cluster está LIGADO (cobrando): desligue ao terminar."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Aviso de falha
+        if: failure() && steps.up.outcome == 'failure'
+        run: |
+          {
+            echo "### ⚠️ O ligar falhou — o cluster pode ter ficado LIGADO (cobrando)"
+            echo "Rode **[Desligar cluster EKS](${{ github.server_url }}/${{ github.repository }}/actions/workflows/eks-desligar.yml)** ou espere o desligamento automático das 03:00 (BRT)."
+          } >> "$GITHUB_STEP_SUMMARY"

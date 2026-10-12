@@ -47,6 +47,9 @@ variable "admin_principal_arns" {
     "arn:aws:iam::915153720516:user/gregori",
     "arn:aws:iam::915153720516:user/michel",
     "arn:aws:iam::915153720516:user/dev-admin",
+    # Botões Ligar/Desligar do GitHub Actions (infra/github-ci) — sem isso o eks-up rodando no
+    # GitHub cria o cluster mas não consegue instalar o LB Controller nem aplicar os serviços.
+    "arn:aws:iam::915153720516:role/GitHubActions-EKS-Admin",
   ]
 }
 
