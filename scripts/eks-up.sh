@@ -12,7 +12,11 @@
 # ==============================================================================
 set -euo pipefail
 
-export AWS_PROFILE="${AWS_PROFILE:-fcg-team}"
+# Local: usa o profile fcg-team. No GitHub Actions (OIDC) as credenciais já vêm no ambiente
+# (AWS_ACCESS_KEY_ID/SECRET/SESSION_TOKEN) e um profile inexistente quebraria a autenticação.
+if [ -z "${AWS_ACCESS_KEY_ID:-}" ] && [ -z "${AWS_PROFILE:-}" ]; then
+  export AWS_PROFILE="fcg-team"
+fi
 export AWS_DEFAULT_REGION="sa-east-1"
 EXPECTED_ACCOUNT="915153720516"
 CLUSTER_NAME="fcg-eks"
@@ -29,11 +33,11 @@ aws() { command aws "$@" | tr -d '\r'; }
 trap 'echo; echo "ERRO: o eks-up.sh falhou. Se o cluster chegou a ser criado ele está LIGADO e cobrando —"; echo "corrija e rode de novo, ou desligue com ./scripts/eks-down.sh"' ERR
 
 account="$(aws sts get-caller-identity --query Account --output text)" || {
-  echo "Erro: não autenticou na AWS com o profile '$AWS_PROFILE'."
+  echo "Erro: não autenticou na AWS com o profile '${AWS_PROFILE:-credenciais do ambiente}'."
   exit 1
 }
 if [ "$account" != "$EXPECTED_ACCOUNT" ]; then
-  echo "Erro: profile '$AWS_PROFILE' aponta para a conta $account (esperado $EXPECTED_ACCOUNT)."
+  echo "Erro: profile '${AWS_PROFILE:-credenciais do ambiente}' aponta para a conta $account (esperado $EXPECTED_ACCOUNT)."
   exit 1
 fi
 
