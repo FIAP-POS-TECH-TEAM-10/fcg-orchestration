@@ -64,7 +64,7 @@ jobs:
             echo "🌙 Se ninguém desligar, o desligamento automático roda às 03:00 (BRT)."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Aviso: teste falhou
+      - name: "Aviso: teste falhou"
         if: failure() && steps.e2e.outcome == 'failure'
         run: |
           {
