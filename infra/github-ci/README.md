@@ -1,10 +1,11 @@
 # infra/github-ci — permissões permanentes do GitHub Actions
 
-Terraform **permanente** (nunca destruído pelos scripts liga/desliga). Hoje gerencia uma única
-inline policy na role `GitHubActions-ECS-Deploy-Role`: `eks:DescribeCluster` no cluster `fcg-eks`.
+Terraform **permanente** (nunca destruído pelos scripts liga/desliga).
 
-O pipeline `ci-cd.yml` dos serviços usa essa permissão para saber se o cluster está ligado:
-`ResourceNotFoundException` → deploy pulado (run verde); `ACTIVE` → rolling update.
+| Recurso | Para quê |
+|---|---|
+| Inline policy `fcg-github-eks-describe` na role `GitHubActions-ECS-Deploy-Role` | `eks:DescribeCluster` no `fcg-eks` — o `ci-cd.yml` dos serviços usa para saber se o cluster está ligado (`ResourceNotFoundException` → deploy pulado; `ACTIVE` → rolling update) |
+| Role `GitHubActions-EKS-Admin` (AdministratorAccess) | botões **Ligar/Desligar cluster EKS** (`.github/workflows/eks-*.yml`). Só pode ser assumida por workflow do `fcg-orchestration` no Environment `aws-eks` (que só aceita a branch `main`) |
 
 ```bash
 export AWS_PROFILE=fcg-team
