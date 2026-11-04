@@ -43,11 +43,18 @@ jobs:
 
       - name: Ligar (scripts/eks-up.sh)
         id: up
+        env:
+          # Secrets do Environment aws-eks: o eks-up os passa ao Terraform (K8s Secrets fcg-admin e
+          # fcg-grafana). Quem roda o workflow não precisa saber os valores.
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          GRAFANA_PASSWORD: ${{ secrets.GRAFANA_PASSWORD }}
         run: ./scripts/eks-up.sh
 
       - name: Teste ponta a ponta (scripts/eks-e2e.sh)
         id: e2e
         if: inputs.testar
+        env:
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: ./scripts/eks-e2e.sh
 
       - name: Resumo
@@ -57,6 +64,7 @@ jobs:
           {
             echo "### ✅ Cluster \`fcg-eks\` ligado"
             echo "**URL pública:** http://${host:-ainda-sem-endereco}"
+            echo "**Grafana (somente leitura):** http://${host:-ainda-sem-endereco}/grafana"
             echo '```'
             kubectl get pods -n fcgames || true
             echo '```'

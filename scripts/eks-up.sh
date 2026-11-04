@@ -24,6 +24,23 @@ CLUSTER_NAME="fcg-eks"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TF_DIR="$ROOT_DIR/infra/eks"
 
+# Senhas fixas: no GitHub Actions vêm dos secrets do Environment aws-eks; local, exporte ou
+# coloque no .env da raiz (ignorado pelo git). Checadas ANTES de qualquer chamada AWS.
+if [ -f "$ROOT_DIR/.env" ]; then
+  # Leitura literal de CHAVE=valor (NÃO usar `source`: senha com aspas, $ ou ! quebraria ou
+  # executaria código). Remove o \r de um .env editado no Windows e deixa o ambiente
+  # (ex.: secrets do CI) ter precedência sobre o arquivo.
+  while IFS='=' read -r key value || [ -n "$key" ]; do
+    key="${key%$'\r'}"; value="${value%$'\r'}"
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    [ -n "${!key+x}" ] || export "$key=$value"
+  done < "$ROOT_DIR/.env"
+fi
+: "${ADMIN_PASSWORD:?defina ADMIN_PASSWORD (exporte ou coloque no .env da raiz): senha do admin do app}"
+: "${GRAFANA_PASSWORD:?defina GRAFANA_PASSWORD (exporte ou coloque no .env da raiz): senha do admin do Grafana}"
+export TF_VAR_admin_password="$ADMIN_PASSWORD"
+export TF_VAR_grafana_password="$GRAFANA_PASSWORD"
+
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 
 # AWS CLI no Windows (Git Bash) termina linhas com \r\n — sem isso comparações e ARNs quebram.
@@ -67,7 +84,7 @@ log "Aplicando os serviços (k8s/eks)..."
   kubectl apply -k k8s/eks
 )
 
-for deploy in redis users-api catalog-api payments-api; do
+for deploy in redis users-api catalog-api payments-api prometheus grafana; do
   log "Aguardando rollout de $deploy..."
   kubectl rollout status "deploy/$deploy" -n fcgames --timeout=600s
 done
@@ -86,6 +103,7 @@ if [ -z "$alb_host" ]; then
   echo "AVISO: o Ingress ainda não tem endereço. Veja: kubectl describe ingress fcgames -n fcgames"
 else
   log "URL pública: http://$alb_host   (o DNS do ALB pode levar 1-2 min para responder)"
+  log "Grafana (somente leitura): http://$alb_host/grafana   (alternativa: kubectl port-forward svc/grafana 3000:80 -n fcgames)"
 fi
 
 log "Cluster ligado. Lembre: ./scripts/eks-down.sh ao terminar."

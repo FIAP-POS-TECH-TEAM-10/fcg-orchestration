@@ -27,6 +27,15 @@ fail() { echo "FALHOU: $*"; exit 1; }
 # Lê JSON do stdin e avalia uma expressão Python sobre ele (variável d).
 jq_py() { "$PY" -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
 
+# Senha do admin: do ambiente (CI / .env exportado) ou, se faltar, do Secret fcg-admin do cluster.
+if [ -z "${ADMIN_PASSWORD:-}" ]; then
+  ADMIN_PASSWORD="$(kubectl get secret fcg-admin -n fcgames -o jsonpath='{.data.admin-password}' 2>/dev/null | base64 -d 2>/dev/null || true)"
+fi
+[ -n "${ADMIN_PASSWORD:-}" ] || { echo "Erro: defina ADMIN_PASSWORD ou aponte o kubectl para o cluster (Secret fcg-admin)."; exit 1; }
+export ADMIN_PASSWORD
+# Corpo montado em Python: senha com aspas, \$ ou ! não pode quebrar o JSON nem o shell.
+admin_login_body="$("$PY" -c 'import json,os; print(json.dumps({"email":"admin@fcgames.com","senha":os.environ["ADMIN_PASSWORD"]}))')"
+
 # Repete um GET até a expressão Python retornar "ok" (eventos são assíncronos).
 wait_for() {
   local url="$1" expr="$2" token="$3" body
@@ -48,14 +57,14 @@ log "Base: $BASE"
 log "0) Aguardando o ALB responder (até 5 min)..."
 for _ in $(seq 1 30); do
   code="$(curl -s -m 5 -o /dev/null -w '%{http_code}' -X POST "$BASE/usuarios/login" \
-    -H 'Content-Type: application/json' -d '{"email":"admin@fcgames.com","senha":"Admin@123"}' || true)"
+    -H 'Content-Type: application/json' -d "$admin_login_body" || true)"
   [ "$code" = "200" ] && break
   sleep 10
 done
 [ "$code" = "200" ] || fail "ALB não respondeu 200 em 5 min (último código: $code)"
 
 email="e2e-$(date +%s)@teste.com"
-senha="E2e@12345"
+senha="E2e@$(date +%s)" # usuário descartável deste run; não é credencial de nada
 
 log "1) Cadastro ($email)"
 cadastro="$(curl -m 10 -sf -X POST "$BASE/usuarios" -H 'Content-Type: application/json' \
@@ -96,5 +105,27 @@ wait_for "$BASE/pagamentos/$pedido_ok" "'ok' if d['status']=='Aprovado' else ''"
 log "8) Jogo na biblioteca"
 wait_for "$BASE/biblioteca/$uid" "'ok' if any(j['jogoId']=='$barato' for j in d['jogos']) else ''" "$token" >/dev/null \
   || fail "jogo $barato não está na biblioteca"
+
+log "9) Grafana (somente leitura, pelo ALB em /grafana)"
+gcode=""
+for _ in $(seq 1 30); do
+  gcode="$(curl -s -m 5 -o /dev/null -w '%{http_code}' "$BASE/grafana/api/health" || true)"
+  [ "$gcode" = "200" ] && break
+  sleep 10
+done
+[ "$gcode" = "200" ] || fail "GET /grafana/api/health não deu 200 (último código: $gcode)"
+curl -m 10 -sf "$BASE/grafana/api/search?query=" | grep -q 'fcgames-observability' \
+  || fail "dashboard fcgames-observability não aparece em /grafana/api/search (acesso anônimo Viewer / provisionamento)"
+
+log "10) Prometheus raspando users-api e catalog-api (targets up)"
+targets_ok=""
+for _ in $(seq 1 12); do
+  alvos="$(kubectl exec -n fcgames deploy/prometheus -- wget -qO- http://localhost:9090/api/v1/targets 2>/dev/null || true)"
+  if [ -n "$alvos" ] && [ "$(echo "$alvos" | jq_py "'ok' if {t['labels']['job'] for t in d['data']['activeTargets'] if t['health']=='up'} >= {'fcg-users-service','fcg-catalog-service'} else ''" 2>/dev/null || true)" = "ok" ]; then
+    targets_ok=1; break
+  fi
+  sleep 5
+done
+[ -n "$targets_ok" ] || fail "Prometheus sem os jobs fcg-users-service e fcg-catalog-service com health=up em 60 s"
 
 log "OK — fluxo completo passou (aprovado: $pedido_ok, rejeitado: $pedido_nok)"
