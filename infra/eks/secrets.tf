@@ -16,3 +16,28 @@ resource "kubernetes_secret_v1" "jwt" {
     "jwt-key" = random_password.jwt_key.result
   }
 }
+
+# Senhas fixas escolhidas pelo time e guardadas em secrets do GitHub Actions (não em arquivo).
+# O app lê fcg-admin como env ADMIN__PASSWORD; o Grafana lê fcg-grafana como
+# GF_SECURITY_ADMIN_PASSWORD.
+resource "kubernetes_secret_v1" "admin" {
+  metadata {
+    name      = "fcg-admin"
+    namespace = kubernetes_namespace_v1.app.metadata[0].name
+  }
+
+  data = {
+    "admin-password" = var.admin_password
+  }
+}
+
+resource "kubernetes_secret_v1" "grafana" {
+  metadata {
+    name      = "fcg-grafana"
+    namespace = kubernetes_namespace_v1.app.metadata[0].name
+  }
+
+  data = {
+    "admin-password" = var.grafana_password
+  }
+}
