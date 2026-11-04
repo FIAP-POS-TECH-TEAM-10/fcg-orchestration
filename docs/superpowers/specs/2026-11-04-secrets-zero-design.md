@@ -6,7 +6,7 @@ Data: 2026-11-04 · Status: aguardando aprovação · Repos: fcg-orchestration (
 
 O enunciado da Fase 4 pede **zero credenciais em código/YAML** (K8s Secrets ou Secrets Manager). Uma varredura em 2026-11-04 (branches `main`/`develop` de todos os repos, sem histórico) achou o que ainda fere isso:
 
-1. Senha do admin (`Admin@123`) no `Program.cs` do users-api, em scripts (`eks-e2e.sh`), nos `.http` e na documentação.
+1. Senha do admin (um literal fixo) no `Program.cs` do users-api, em scripts (`eks-e2e.sh`), nos `.http` e na documentação.
 2. Senhas do MariaDB/Zabbix e do admin do Grafana no `docker-compose.yml` do repo de observabilidade.
 3. `guest/guest` do RabbitMQ espalhado em appsettings, `launchSettings`, fallbacks no código e `k8s/*secret.yaml` (ver "Decisões pendentes").
 
@@ -24,7 +24,7 @@ Resultado desejado: nenhum segredo em arquivo versionado dos nossos repos, e Pro
 ## Não-objetivos
 
 - **Não usar AWS Secrets Manager** (decisão: K8s Secret atende o enunciado e nenhum segredo nosso precisa de rotação/persistência).
-- Não reescrever o histórico git dos repos em `main`. A chave JWT antiga e `Admin@123` continuam no histórico; a chave antiga não é usada em lugar nenhum (o cluster gera uma aleatória) e a senha do admin muda.
+- Não reescrever o histórico git dos repos em `main`. A chave JWT antiga e a senha antiga do admin continuam no histórico; a chave antiga não é usada em lugar nenhum (o cluster gera uma aleatória) e a senha do admin muda.
 - Não adicionar `/metrics` ao PaymentsAPI (ele não aparece nos painéis; fica como follow-up).
 - Zabbix sai de vez (decisão do usuário); não é substituído por nada.
 - A branch `feature-michel-add-secretmanager` não entra aqui (feedback já dado ao autor; é PR dele).
