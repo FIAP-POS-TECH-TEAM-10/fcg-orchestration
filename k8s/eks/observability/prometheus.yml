@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Scrape pelo DNS interno dos Services (o /metrics não passa pelo ALB). O dashboard filtra por
+# `job` via label_values(http_request_duration_seconds_count, job): qualquer job novo aparece.
+scrape_configs:
+  - job_name: 'fcg-users-service'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['users-api.fcgames.svc:80']
+
+  - job_name: 'fcg-catalog-service'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['catalog-api.fcgames.svc:80']
+
+  # payments-api ainda não expõe /metrics (Program.cs sem UseHttpMetrics/MapMetrics):
+  # adicionar o job aqui quando isso for feito.

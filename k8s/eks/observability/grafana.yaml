@@ -1,0 +1,88 @@
+# Grafana do FCGames, publicado no mesmo ALB em /grafana (regra em ../ingress.yaml).
+# Acesso anônimo SOMENTE LEITURA (Viewer): o ALB é HTTP, então nenhuma senha deve ser digitada
+# pela URL pública. O admin existe (senha do Secret fcg-grafana) mas só deve ser usado por
+#   kubectl port-forward svc/grafana 3000:80 -n fcgames
+# Datasource, provider e dashboard vêm de ConfigMaps (gerados em ../kustomization.yaml).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      volumes:
+        - name: datasources
+          configMap:
+            name: grafana-datasources
+        - name: dashboards-provider
+          configMap:
+            name: grafana-dashboards-provider
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards
+      containers:
+        - name: grafana
+          image: grafana/grafana:13.2.1
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            # Vive em sub-caminho atrás do ALB (sem isso os assets e redirects quebram).
+            - name: GF_SERVER_ROOT_URL
+              value: "%(protocol)s://%(domain)s/grafana/"
+            - name: GF_SERVER_SERVE_FROM_SUB_PATH
+              value: "true"
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "true"
+            - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+              value: Viewer
+            - name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH
+              value: /etc/grafana/provisioning/dashboards-data/fcgames-observability.json
+            - name: GF_SECURITY_ADMIN_USER
+              value: admin
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: fcg-grafana
+                  key: admin-password
+          readinessProbe:
+            httpGet:
+              path: /grafana/api/health
+              port: http
+            periodSeconds: 5
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboards-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboards
+              mountPath: /etc/grafana/provisioning/dashboards-data
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  annotations:
+    # O Ingress usa /health de health check; o Grafana responde neste caminho. Se o LB Controller
+    # ignorar a anotação por Service, usar o fallback do plano (Ingress próprio no mesmo grupo).
+    alb.ingress.kubernetes.io/healthcheck-path: /grafana/api/health
+spec:
+  selector:
+    app: grafana
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

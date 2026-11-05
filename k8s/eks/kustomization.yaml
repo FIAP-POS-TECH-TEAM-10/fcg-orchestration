@@ -11,6 +11,8 @@ resources:
   - users-api.yaml
   - catalog-api.yaml
   - payments-api.yaml
+  - observability/prometheus.yaml
+  - observability/grafana.yaml
   - ingress.yaml
 
 # Gera o ConfigMap fcg-config com sufixo de hash: mudar config.env dispara rollout.
@@ -18,3 +20,17 @@ configMapGenerator:
   - name: fcg-config
     envs:
       - config.env
+  # Observabilidade: config entra por ConfigMap (imagens oficiais, sem pipeline de imagem).
+  # A chave (antes do "=") é o nome do arquivo montado no container.
+  - name: prometheus-config
+    files:
+      - prometheus.yml=observability/prometheus.yml
+  - name: grafana-datasources
+    files:
+      - datasource.yml=observability/grafana-datasource.yml
+  - name: grafana-dashboards-provider
+    files:
+      - dashboards.yml=observability/grafana-dashboards-provider.yml
+  - name: grafana-dashboards
+    files:
+      - fcgames-observability.json=observability/fcgames-observability.json

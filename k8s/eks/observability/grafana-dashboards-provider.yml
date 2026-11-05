@@ -1,0 +1,19 @@
+apiVersion: 1
+
+providers:
+  - name: 'FCGames Dashboards'
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      # NÃO usar /var/lib/grafana/* aqui: é o path onde o docker-compose.yml monta
+      # o volume persistente (grafana_data). Um volume nomeado já existente esconde
+      # o conteúdo que o Dockerfile copiou pra dentro da imagem (Docker só popula um
+      # volume com o conteúdo da imagem na primeira vez que o volume é criado vazio;
+      # um volume reaproveitado de um deploy anterior nunca vê os dashboards novos).
+      # /etc/grafana não é montado como volume, então sempre vem fresco da imagem.
+      path: /etc/grafana/provisioning/dashboards-data
+      foldersFromFilesStructure: false
