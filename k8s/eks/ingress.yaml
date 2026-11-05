@@ -60,3 +60,11 @@ spec:
                 name: payments-api
                 port:
                   name: http
+          # Grafana somente leitura (acesso anônimo Viewer). O Prometheus NÃO tem rota: fica só no cluster.
+          - path: /grafana
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  name: http

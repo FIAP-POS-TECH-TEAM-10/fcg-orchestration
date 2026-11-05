@@ -55,6 +55,7 @@ services:
       RabbitMQ__Username: ${RABBITMQ_USER:-guest}
       RabbitMQ__Password: ${RABBITMQ_PASS:-guest}
       JWT__KEY: ${JWT_KEY}
+      ADMIN__PASSWORD: ${ADMIN_PASSWORD:?defina no .env}
       JWT__ISSUER: AppFiapFcGames
     volumes:
       - users-data:/data

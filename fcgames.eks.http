@@ -68,12 +68,13 @@ Authorization: Bearer {{login.response.body.$.token}}
 GET {{base}}/biblioteca/{{cadastro.response.body.$.id}}
 Authorization: Bearer {{login.response.body.$.token}}
 
-### Admin (seed: admin@fcgames.com / Admin@123)
+### Admin (seed: admin@fcgames.com / senha em ADMIN_PASSWORD (.env))
+# REST Client (VS Code) le o .env desta pasta ({{$dotenv ADMIN_PASSWORD}}); JetBrains: use http-client.private.env.json (ignorado pelo git).
 # @name loginAdmin
 POST {{base}}/usuarios/login
 Content-Type: application/json
 
 {
   "email": "admin@fcgames.com",
-  "senha": "Admin@123"
+  "senha": "{{$dotenv ADMIN_PASSWORD}}"
 }

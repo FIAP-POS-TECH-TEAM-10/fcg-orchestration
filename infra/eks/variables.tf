@@ -57,3 +57,20 @@ variable "github_deploy_role_name" {
   type    = string
   default = "GitHubActions-ECS-Deploy-Role"
 }
+
+variable "admin_password" {
+  type      = string
+  sensitive = true
+  # Senha do usuário admin do app (seed do users-api). Sem default de propósito: vem do
+  # secret ADMIN_PASSWORD do GitHub (Environment aws-eks) ou de TF_VAR_admin_password,
+  # exportado pelo scripts/eks-up.sh. No destroy basta um placeholder.
+  description = "Senha do admin do app; vira o Secret fcg-admin"
+}
+
+variable "grafana_password" {
+  type      = string
+  sensitive = true
+  # Mesma lógica de admin_password, com secret próprio (GRAFANA_PASSWORD) porque a tela
+  # de login do Grafana fica exposta no ALB.
+  description = "Senha do admin do Grafana; vira o Secret fcg-grafana"
+}

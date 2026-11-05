@@ -47,6 +47,13 @@ spec:
                 secretKeyRef:
                   name: fcg-jwt
                   key: jwt-key
+            # Senha do admin criado na primeira subida (Secret fcg-admin, gerado pelo Terraform a
+            # partir do secret ADMIN_PASSWORD do GitHub). Sem "optional": Secret ausente = erro legível.
+            - name: ADMIN__PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: fcg-admin
+                  key: admin-password
           volumeMounts:
             - name: data
               mountPath: /data

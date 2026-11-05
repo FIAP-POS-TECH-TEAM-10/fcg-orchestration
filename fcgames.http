@@ -78,7 +78,8 @@ Authorization: Bearer {{login.response.body.$.token}}
 
 ################################################################################
 # Fluxo de Admin (jogos sao [Authorize Admin])
-# Admin seedado: admin@fcgames.com / Admin@123
+# Admin seedado: admin@fcgames.com / senha em ADMIN_PASSWORD (.env)
+# REST Client (VS Code) le o .env desta pasta ({{$dotenv ADMIN_PASSWORD}}); JetBrains: use http-client.private.env.json (ignorado pelo git).
 ################################################################################
 
 ### Login do admin
@@ -88,7 +89,7 @@ Content-Type: application/json
 
 {
   "email": "admin@fcgames.com",
-  "senha": "Admin@123"
+  "senha": "{{$dotenv ADMIN_PASSWORD}}"
 }
 
 ### Cria um novo jogo (somente Admin)

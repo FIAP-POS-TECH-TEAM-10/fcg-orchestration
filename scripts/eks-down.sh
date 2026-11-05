@@ -93,6 +93,11 @@ if [ -n "$remaining" ]; then
 fi
 
 # --- 3. Destroy ------------------------------------------------------------------
+# As senhas são variáveis obrigatórias do Terraform, mas o destroy só remove os Secrets, não
+# compara valor: um placeholder basta. Assim o desligamento (inclusive o das 03:00 BRT) nunca
+# depende dos secrets reais estarem no ambiente.
+export TF_VAR_admin_password="${ADMIN_PASSWORD:-destroy-placeholder}"
+export TF_VAR_grafana_password="${GRAFANA_PASSWORD:-destroy-placeholder}"
 log "terraform destroy em infra/eks..."
 (
   cd "$TF_DIR"
