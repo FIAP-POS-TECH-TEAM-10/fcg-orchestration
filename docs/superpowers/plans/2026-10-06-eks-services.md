@@ -1018,7 +1018,7 @@ on:
 
 ```json
   "Jwt": {
-    "Key": "ChaveSegredo12345671212121321341231231890",
+    "Key": "<JWT_KEY_DEV>",
     "Issuer": "AppFiapFcGames"    
   },
 ```
@@ -1131,7 +1131,7 @@ Importante: este mesmo PR não pode disparar o workflow antigo — como o gatilh
 
 ```json
   "Jwt": {
-    "Key": "ChaveSegredo12345671212121321341231231890",
+    "Key": "<JWT_KEY_DEV>",
     "Issuer": "AppFiapFcGames"
   },
 ```
@@ -1234,7 +1234,7 @@ on:
 
 ```json
   "Jwt": {
-    "Key": "ChaveSegredo12345671212121321341231231890",
+    "Key": "<JWT_KEY_DEV>",
     "Issuer": "AppFiapFcGames"
   },
 ```
