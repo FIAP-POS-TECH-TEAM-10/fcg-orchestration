@@ -30,8 +30,11 @@ if [ -f "$ROOT_DIR/.env" ]; then
   # Leitura literal de CHAVE=valor (NÃO usar `source`: senha com aspas, $ ou ! quebraria ou
   # executaria código). Remove o \r de um .env editado no Windows e deixa o ambiente
   # (ex.: secrets do CI) ter precedência sobre o arquivo.
-  while IFS='=' read -r key value || [ -n "$key" ]; do
-    key="${key%$'\r'}"; value="${value%$'\r'}"
+  # Lê a LINHA inteira e separa no primeiro "=" (read com IFS='=' perderia um "=" final da senha).
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"
+    [[ "$line" == *=* ]] || continue
+    key="${line%%=*}"; value="${line#*=}"
     [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
     [ -n "${!key+x}" ] || export "$key=$value"
   done < "$ROOT_DIR/.env"

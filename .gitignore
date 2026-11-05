@@ -429,3 +429,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# JetBrains HTTP Client: arquivo privado com a senha do admin (nunca versionar)
+http-client.private.env.json
