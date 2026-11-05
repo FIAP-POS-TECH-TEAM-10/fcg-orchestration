@@ -55,7 +55,7 @@ Edite o `.env` e preencha:
 |----------|---------|
 | `NUGET_AUTH_TOKEN` | PAT com `read:packages` (restaura o pacote de eventos no build) |
 | `JWT_KEY` | Chave de assinatura JWT, **idêntica** nos 3 serviços (mín. 32 chars) |
-| `RABBITMQ_USER` / `RABBITMQ_PASS` | Credenciais do broker (default `guest`/`guest`) |
+| `RABBITMQ_USER` / `RABBITMQ_PASS` | Credenciais do broker RabbitMQ (obrigatórias, sem valor padrão) |
 | `ADMIN_PASSWORD` | Senha do usuário `admin@fcgames.com` criado pelo users-api (local e EKS; no EKS vem do secret do GitHub) |
 | `GRAFANA_PASSWORD` | Senha do admin do Grafana no EKS (secret do GitHub; o `eks-up.sh` lê do ambiente ou do `.env`) |
 
@@ -104,7 +104,7 @@ curl http://localhost:5003/health              # PaymentsAPI
 curl http://localhost:5004/health              # Notifications
 ```
 
-**RabbitMQ Management UI:** http://localhost:15672 (login `guest`/`guest`)
+**RabbitMQ Management UI:** http://localhost:15672 (login com `RABBITMQ_USER`/`RABBITMQ_PASS` do `.env`)
 — veja as filas sendo criadas e as mensagens passando em tempo real.
 
 ---

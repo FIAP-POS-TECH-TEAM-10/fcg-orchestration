@@ -20,8 +20,8 @@ services:
       - "5672:5672"     # AMQP
       - "15672:15672"   # Management UI
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?defina no .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:?defina no .env}
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
@@ -52,8 +52,8 @@ services:
       ASPNETCORE_URLS: http://+:5001
       ConnectionStrings__DefaultConnection: "Data Source=/data/users.db"
       RabbitMQ__Host: rabbitmq
-      RabbitMQ__Username: ${RABBITMQ_USER:-guest}
-      RabbitMQ__Password: ${RABBITMQ_PASS:-guest}
+      RabbitMQ__Username: ${RABBITMQ_USER:?defina no .env}
+      RabbitMQ__Password: ${RABBITMQ_PASS:?defina no .env}
       JWT__KEY: ${JWT_KEY}
       ADMIN__PASSWORD: ${ADMIN_PASSWORD:?defina no .env}
       JWT__ISSUER: AppFiapFcGames
@@ -81,8 +81,8 @@ services:
       ASPNETCORE_URLS: http://+:5002
       ConnectionStrings__DefaultConnection: "Data Source=/data/catalog.db"
       RabbitMQ__Host: rabbitmq
-      RabbitMQ__Username: ${RABBITMQ_USER:-guest}
-      RabbitMQ__Password: ${RABBITMQ_PASS:-guest}
+      RabbitMQ__Username: ${RABBITMQ_USER:?defina no .env}
+      RabbitMQ__Password: ${RABBITMQ_PASS:?defina no .env}
       JWT__KEY: ${JWT_KEY}
       JWT__ISSUER: AppFiapFcGames
       DynamoDb__ServiceUrl: "http://dynamodb-local:8000"
@@ -113,8 +113,8 @@ services:
     environment:
       ConnectionStrings__DefaultConnection: "Data Source=/data/catalog.db"
       RabbitMQ__Host: rabbitmq
-      RabbitMQ__Username: ${RABBITMQ_USER:-guest}
-      RabbitMQ__Password: ${RABBITMQ_PASS:-guest}
+      RabbitMQ__Username: ${RABBITMQ_USER:?defina no .env}
+      RabbitMQ__Password: ${RABBITMQ_PASS:?defina no .env}
     volumes:
       - catalog-data:/data
     depends_on:
@@ -134,8 +134,8 @@ services:
       ASPNETCORE_URLS: http://+:5003
       ConnectionStrings__DefaultConnection: "Data Source=/data/payments.db"
       RabbitMQ__Host: rabbitmq
-      RabbitMQ__Username: ${RABBITMQ_USER:-guest}
-      RabbitMQ__Password: ${RABBITMQ_PASS:-guest}
+      RabbitMQ__Username: ${RABBITMQ_USER:?defina no .env}
+      RabbitMQ__Password: ${RABBITMQ_PASS:?defina no .env}
       JWT__KEY: ${JWT_KEY}
       JWT__ISSUER: AppFiapFcGames
     volumes:
@@ -160,8 +160,8 @@ services:
     environment:
       ConnectionStrings__DefaultConnection: "Data Source=/data/payments.db"
       RabbitMQ__Host: rabbitmq
-      RabbitMQ__Username: ${RABBITMQ_USER:-guest}
-      RabbitMQ__Password: ${RABBITMQ_PASS:-guest}
+      RabbitMQ__Username: ${RABBITMQ_USER:?defina no .env}
+      RabbitMQ__Password: ${RABBITMQ_PASS:?defina no .env}
     volumes:
       - payments-data:/data
     depends_on:
@@ -180,8 +180,8 @@ services:
     environment:
       ASPNETCORE_URLS: http://+:5004
       RabbitMQ__Host: rabbitmq
-      RabbitMQ__Username: ${RABBITMQ_USER:-guest}
-      RabbitMQ__Password: ${RABBITMQ_PASS:-guest}
+      RabbitMQ__Username: ${RABBITMQ_USER:?defina no .env}
+      RabbitMQ__Password: ${RABBITMQ_PASS:?defina no .env}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5004/health"]
       interval: 10s
