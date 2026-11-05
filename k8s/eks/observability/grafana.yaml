@@ -64,12 +64,14 @@ spec:
               mountPath: /etc/grafana/provisioning/dashboards
             - name: dashboards
               mountPath: /etc/grafana/provisioning/dashboards-data
+          # Medido no ciclo real: 256Mi de limite dava OOMKilled (sobe com ~220Mi e passa disso ao
+          # servir a tela). 512Mi de limite dá folga; o request fica baixo para caber nos 2 t3.small.
           resources:
             requests:
-              cpu: 50m
-              memory: 128Mi
+              cpu: 100m
+              memory: 192Mi
             limits:
-              memory: 256Mi
+              memory: 512Mi
 ---
 apiVersion: v1
 kind: Service

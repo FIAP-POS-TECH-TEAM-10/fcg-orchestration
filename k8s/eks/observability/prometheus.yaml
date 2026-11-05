@@ -40,11 +40,11 @@ spec:
               mountPath: /etc/prometheus
             - name: data
               mountPath: /prometheus
-          # Chute inicial para 2x t3.small; ajustar depois do ciclo real.
+          # Medido no ciclo real: ~35Mi em uso com 2 targets; request baixo para sobrar espaço nos 2x t3.small.
           resources:
             requests:
               cpu: 100m
-              memory: 256Mi
+              memory: 128Mi
             limits:
               memory: 512Mi
 ---
