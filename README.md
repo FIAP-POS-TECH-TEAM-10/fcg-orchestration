@@ -56,6 +56,8 @@ Edite o `.env` e preencha:
 | `NUGET_AUTH_TOKEN` | PAT com `read:packages` (restaura o pacote de eventos no build) |
 | `JWT_KEY` | Chave de assinatura JWT, **idêntica** nos 3 serviços (mín. 32 chars) |
 | `RABBITMQ_USER` / `RABBITMQ_PASS` | Credenciais do broker (default `guest`/`guest`) |
+| `ADMIN_PASSWORD` | Senha do usuário `admin@fcgames.com` criado pelo users-api (local e EKS; no EKS vem do secret do GitHub) |
+| `GRAFANA_PASSWORD` | Senha do admin do Grafana no EKS (secret do GitHub; o `eks-up.sh` lê do ambiente ou do `.env`) |
 
 > O `.env` **não é commitado** (está no `.gitignore`).
 

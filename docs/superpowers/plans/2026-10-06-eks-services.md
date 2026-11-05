@@ -872,14 +872,14 @@ Authorization: Bearer {{login.response.body.$.token}}
 GET {{base}}/biblioteca/{{cadastro.response.body.$.id}}
 Authorization: Bearer {{login.response.body.$.token}}
 
-### Admin (seed: admin@fcgames.com / Admin@123)
+### Admin (seed: admin@fcgames.com / <ADMIN_PASSWORD>)
 # @name loginAdmin
 POST {{base}}/usuarios/login
 Content-Type: application/json
 
 {
   "email": "admin@fcgames.com",
-  "senha": "Admin@123"
+  "senha": "<ADMIN_PASSWORD>"
 }
 ```
 
@@ -1366,7 +1366,7 @@ Expected: termina com `OK — fluxo completo passou`. Se falhar, ver `kubectl lo
 URL=$(kubectl get ingress fcgames -n fcgames -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 ( for i in $(seq 1 120); do
     curl -s -o /dev/null -w "%{http_code}\n" -X POST "http://$URL/usuarios/login" \
-      -H 'Content-Type: application/json' -d '{"email":"admin@fcgames.com","senha":"Admin@123"}'
+      -H 'Content-Type: application/json' -d '{"email":"admin@fcgames.com","senha":"<ADMIN_PASSWORD>"}'
     sleep 1
   done ) > /tmp/rolling.txt &
 sleep 5
