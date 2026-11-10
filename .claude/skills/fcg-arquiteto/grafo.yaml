@@ -1,0 +1,159 @@
+# Grafo curado da arquitetura do FCGames. Verificado em 2026-11-10 contra a main dos repositórios
+# e a AWS (somente leitura). Nós: id, tipo, descricao, onde, fonte. Arestas: de -> para (relacao).
+# tipo: servico | evento | fila | topico | tabela | recurso-aws | repositorio | pipeline
+# relacao: publica | consome | chama | le | grava | roda-em | acessa-via | publica-imagem-em
+
+nos:
+  # --- serviços ---
+  - {id: users-api, tipo: servico, descricao: "Cadastro, login e JWT (único emissor)", onde: "EKS pod users-api; local :5001", fonte: "fcg-users-service/README.md"}
+  - {id: catalog-api, tipo: servico, descricao: "Jogos, desejos, compras e biblioteca (HTTP)", onde: "EKS pod catalog-api, container api; local :5002", fonte: "fcg-catalog-service/README.md"}
+  - {id: catalog-worker, tipo: servico, descricao: "Consumers de usuário criado e pagamento processado", onde: "EKS pod catalog-api, container worker; local catalog-worker", fonte: "fcg-catalog-service/app/src/Fiap.FCGames.Catalogo.Worker"}
+  - {id: payments-api, tipo: servico, descricao: "Consulta de pagamento (GET /pagamentos/{orderId})", onde: "EKS pod payments-api, container api; local :5003", fonte: "fcg-payments-service/README.md"}
+  - {id: payments-worker, tipo: servico, descricao: "Aplica a regra (<=0 ou >100 rejeita) e publica o resultado", onde: "EKS pod payments-api, container worker; local payments-worker", fonte: "fcg-payments-service/app/src/Fiap.FCGames.Payments.Worker"}
+  - {id: notifications-lambda, tipo: servico, descricao: "Notificações na AWS (logs de e-mail simulado)", onde: "Lambda fiap-fcgames-notifications-lambda", fonte: "fcg-notifications-lambda/README.md"}
+  - {id: notifications-worker, tipo: servico, descricao: "Notificações só no docker compose local (RabbitMQ)", onde: "local notifications-worker :5004", fonte: "fcg-notifications-service/README.md"}
+  - {id: redis, tipo: servico, descricao: "Cache da listagem de jogos do catalog", onde: "EKS deployment redis (6379)", fonte: "fcg-orchestration/k8s/eks/redis.yaml"}
+  - {id: prometheus, tipo: servico, descricao: "Coleta /metrics de users e catalog; sem acesso externo", onde: "EKS deployment prometheus", fonte: "fcg-orchestration/k8s/eks/observability"}
+  - {id: grafana, tipo: servico, descricao: "Painel FCGames — Observabilidade; anônimo só leitura", onde: "EKS deployment grafana, ALB /grafana", fonte: "fcg-orchestration/k8s/eks/observability"}
+  - {id: rabbitmq, tipo: servico, descricao: "Broker do ambiente local (na AWS é SQS/SNS)", onde: "docker compose fcg-rabbitmq :5672/:15672", fonte: "fcg-orchestration/docker-compose.yml"}
+
+  # --- eventos (pacote FCGames.IntegrationEvents 1.0.0-preview.2) ---
+  - {id: usuario-criado, tipo: evento, descricao: "UsuarioCriadoEvento", onde: "FCGames.IntegrationEvents", fonte: "fcg-integration-events/README.md"}
+  - {id: pedido-realizado, tipo: evento, descricao: "PedidoRealizadoEvento", onde: "FCGames.IntegrationEvents", fonte: "fcg-integration-events/README.md"}
+  - {id: pagamento-processado, tipo: evento, descricao: "PagamentoProcessadoEvento (Aprovado | Rejeitado)", onde: "FCGames.IntegrationEvents", fonte: "fcg-integration-events/README.md"}
+
+  # --- tópicos SNS (criados pelo MassTransit) ---
+  - {id: topico-usuario-criado, tipo: topico, descricao: "SNS FCGames_IntegrationEvents-UsuarioCriadoEvento", onde: "AWS SNS sa-east-1", fonte: "aws sns list-topics"}
+  - {id: topico-pedido-realizado, tipo: topico, descricao: "SNS FCGames_IntegrationEvents-PedidoRealizadoEvento", onde: "AWS SNS sa-east-1", fonte: "aws sns list-topics"}
+  - {id: topico-pagamento-processado, tipo: topico, descricao: "SNS FCGames_IntegrationEvents-PagamentoProcessadoEvento", onde: "AWS SNS sa-east-1", fonte: "aws sns list-topics"}
+
+  # --- filas SQS (na AWS) ---
+  - {id: fila-catalog-usuario-criado, tipo: fila, descricao: "SQS catalog-usuario-criado", onde: "AWS SQS", fonte: "Catalogo.Worker/Program.cs (ReceiveEndpoint)"}
+  - {id: fila-catalog-pagamento-processado, tipo: fila, descricao: "SQS catalog-pagamento-processado (+ _error)", onde: "AWS SQS", fonte: "Catalogo.Worker/Program.cs (ReceiveEndpoint)"}
+  - {id: fila-payments-pedido-realizado, tipo: fila, descricao: "SQS payments-pedido-realizado; retry 5/10/30 s", onde: "AWS SQS", fonte: "Payments.Worker/Program.cs"}
+  - {id: fila-notifications, tipo: fila, descricao: "SQS fiap-fcgames-sqs-notifications-queue (DLQ -dlq); só assinada em UsuarioCriado", onde: "AWS SQS", fonte: "fcg-notifications-lambda/infra/sqs.tf + aws sns list-subscriptions"}
+
+  # --- dados ---
+  - {id: dynamo-jogos, tipo: tabela, descricao: "DynamoDB Jogos (seed: Hades, Hollow Knight, Cyberpunk 2077)", onde: "AWS DynamoDB; local dynamodb-local :8000", fonte: "Catalogo.Infra/DataProvider"}
+  - {id: dynamo-desejos, tipo: tabela, descricao: "DynamoDB Desejos (lista de desejos)", onde: "AWS DynamoDB; local dynamodb-local", fonte: "Catalogo.Infra/DataProvider"}
+  - {id: sqlite-users, tipo: tabela, descricao: "SQLite Usuarios (efêmero no EKS)", onde: "emptyDir /data/users.db", fonte: "k8s/eks/users-api.yaml"}
+  - {id: sqlite-catalog, tipo: tabela, descricao: "SQLite Bibliotecas, ItensBiblioteca, Pedidos (efêmero no EKS)", onde: "emptyDir /data/catalog.db (api e worker)", fonte: "k8s/eks/catalog-api.yaml"}
+  - {id: sqlite-payments, tipo: tabela, descricao: "SQLite Pagamentos, PedidoId único (efêmero no EKS)", onde: "emptyDir /data/payments.db (api e worker)", fonte: "k8s/eks/payments-api.yaml"}
+  - {id: dynamo-tflocks, tipo: tabela, descricao: "DynamoDB fiap-tech-challenge-tflocks (lock do Terraform)", onde: "AWS DynamoDB", fonte: "aws dynamodb list-tables"}
+
+  # --- recursos AWS / cluster ---
+  - {id: eks-cluster, tipo: recurso-aws, descricao: "EKS fcg-eks, k8s 1.36, 2x t3.small, liga/desliga por sessão", onde: "AWS conta 915153720516, sa-east-1", fonte: "fcg-orchestration/infra/eks"}
+  - {id: alb, tipo: recurso-aws, descricao: "ALB criado pelo Ingress; URL muda a cada Ligar", onde: "EC2 > Load Balancers k8s-fcgames-*", fonte: "fcg-orchestration/k8s/eks/ingress.yaml"}
+  - {id: ecr-users, tipo: recurso-aws, descricao: "ECR fcg-users-service (:sha7, :latest)", onde: "AWS ECR", fonte: "ci-cd.yml"}
+  - {id: ecr-catalog, tipo: recurso-aws, descricao: "ECR fcg-catalog-service (+ worker-*)", onde: "AWS ECR", fonte: "ci-cd.yml"}
+  - {id: ecr-payments, tipo: recurso-aws, descricao: "ECR fcg-payments-service (+ worker-*)", onde: "AWS ECR", fonte: "ci-cd.yml"}
+  - {id: s3-tfstate, tipo: recurso-aws, descricao: "S3 fiap-tech-challenge-tfstate-123456-915153720516-sa-east-1-an (estado do Terraform)", onde: "AWS S3", fonte: "infra/*/versions.tf"}
+  - {id: cloudwatch-lambda, tipo: recurso-aws, descricao: "Log group /aws/lambda/fiap-fcgames-notifications-lambda", onde: "AWS CloudWatch", fonte: "fcg-notifications-lambda/infra/main.tf"}
+  - {id: role-users, tipo: recurso-aws, descricao: "Role fcg-eks-users-api (Pod Identity: SQS/SNS)", onde: "AWS IAM (só com cluster ligado)", fonte: "infra/eks/workload-iam.tf"}
+  - {id: role-catalog, tipo: recurso-aws, descricao: "Role fcg-eks-catalog-api (SQS/SNS + DynamoDB Jogos/Desejos)", onde: "AWS IAM (só com cluster ligado)", fonte: "infra/eks/workload-iam.tf"}
+  - {id: role-payments, tipo: recurso-aws, descricao: "Role fcg-eks-payments-api (SQS/SNS)", onde: "AWS IAM (só com cluster ligado)", fonte: "infra/eks/workload-iam.tf"}
+  - {id: role-github-deploy, tipo: recurso-aws, descricao: "GitHubActions-ECS-Deploy-Role (OIDC: push ECR + DescribeCluster)", onde: "AWS IAM (permanente)", fonte: "infra/github-ci/main.tf"}
+  - {id: role-github-admin, tipo: recurso-aws, descricao: "GitHubActions-EKS-Admin (só Environment aws-eks, branch main)", onde: "AWS IAM (permanente)", fonte: "infra/github-ci/eks-admin-role.tf"}
+  - {id: secret-fcg-jwt, tipo: recurso-aws, descricao: "Secret do Kubernetes fcg-jwt (jwt-key aleatória por criação)", onde: "EKS namespace fcgames", fonte: "infra/eks/secrets.tf"}
+  - {id: secret-fcg-admin, tipo: recurso-aws, descricao: "Secret do Kubernetes fcg-admin (vem de ADMIN_PASSWORD)", onde: "EKS namespace fcgames", fonte: "infra/eks/secrets.tf"}
+  - {id: secret-fcg-grafana, tipo: recurso-aws, descricao: "Secret do Kubernetes fcg-grafana (vem de GRAFANA_PASSWORD)", onde: "EKS namespace fcgames", fonte: "infra/eks/secrets.tf"}
+
+  # --- repositórios ---
+  - {id: repo-users, tipo: repositorio, descricao: "fcg-users-service", onde: "GitHub FIAP-POS-TECH-TEAM-10", fonte: "README.md"}
+  - {id: repo-catalog, tipo: repositorio, descricao: "fcg-catalog-service", onde: "GitHub FIAP-POS-TECH-TEAM-10", fonte: "README.md"}
+  - {id: repo-payments, tipo: repositorio, descricao: "fcg-payments-service", onde: "GitHub FIAP-POS-TECH-TEAM-10", fonte: "README.md"}
+  - {id: repo-notifications, tipo: repositorio, descricao: "fcg-notifications-service (worker local)", onde: "GitHub FIAP-POS-TECH-TEAM-10", fonte: "README.md"}
+  - {id: repo-lambda, tipo: repositorio, descricao: "fcg-notifications-lambda", onde: "GitHub FIAP-POS-TECH-TEAM-10", fonte: "README.md"}
+  - {id: repo-events, tipo: repositorio, descricao: "fcg-integration-events (pacote NuGet dos contratos)", onde: "GitHub FIAP-POS-TECH-TEAM-10", fonte: "README.md"}
+  - {id: repo-orchestration, tipo: repositorio, descricao: "fcg-orchestration (compose, EKS, botões, esta skill)", onde: "GitHub FIAP-POS-TECH-TEAM-10", fonte: "README.md"}
+
+  # --- pipelines ---
+  - {id: ci-cd-users, tipo: pipeline, descricao: "ci-cd.yml: build, testes, imagem, Trivy, ECR, rolling update", onde: "fcg-users-service/.github/workflows", fonte: "ci-cd.yml"}
+  - {id: ci-cd-catalog, tipo: pipeline, descricao: "ci-cd.yml (API + worker)", onde: "fcg-catalog-service/.github/workflows", fonte: "ci-cd.yml"}
+  - {id: ci-cd-payments, tipo: pipeline, descricao: "ci-cd.yml (API + worker)", onde: "fcg-payments-service/.github/workflows", fonte: "ci-cd.yml"}
+  - {id: eks-ligar, tipo: pipeline, descricao: "Ligar cluster EKS (eks-up.sh + e2e opcional)", onde: "fcg-orchestration/.github/workflows/eks-ligar.yml", fonte: "eks-ligar.yml"}
+  - {id: eks-desligar, tipo: pipeline, descricao: "Desligar cluster EKS (manual + cron 03:00 BRT)", onde: "fcg-orchestration/.github/workflows/eks-desligar.yml", fonte: "eks-desligar.yml"}
+  - {id: lambda-deploy, tipo: pipeline, descricao: "deploy-on-pr-merge.yml: build + terraform apply da Lambda", onde: "fcg-notifications-lambda/.github/workflows", fonte: "deploy-on-pr-merge.yml"}
+  - {id: events-publish, tipo: pipeline, descricao: "publish.yml: pacote no GitHub Packages (preview na main, tag v*.*.*)", onde: "fcg-integration-events/.github/workflows", fonte: "publish.yml"}
+
+arestas:
+  # mensageria (AWS)
+  - {de: users-api, para: usuario-criado, relacao: publica}
+  - {de: catalog-api, para: pedido-realizado, relacao: publica}
+  - {de: payments-worker, para: pagamento-processado, relacao: publica}
+  - {de: usuario-criado, para: topico-usuario-criado, relacao: acessa-via}
+  - {de: pedido-realizado, para: topico-pedido-realizado, relacao: acessa-via}
+  - {de: pagamento-processado, para: topico-pagamento-processado, relacao: acessa-via}
+  - {de: topico-usuario-criado, para: fila-catalog-usuario-criado, relacao: publica}
+  - {de: topico-usuario-criado, para: fila-notifications, relacao: publica}
+  - {de: topico-pedido-realizado, para: fila-payments-pedido-realizado, relacao: publica}
+  - {de: topico-pagamento-processado, para: fila-catalog-pagamento-processado, relacao: publica}
+  - {de: catalog-worker, para: fila-catalog-usuario-criado, relacao: consome}
+  - {de: catalog-worker, para: fila-catalog-pagamento-processado, relacao: consome}
+  - {de: payments-worker, para: fila-payments-pedido-realizado, relacao: consome}
+  - {de: notifications-lambda, para: fila-notifications, relacao: consome}
+  - {de: notifications-lambda, para: cloudwatch-lambda, relacao: grava}
+  # mensageria (local)
+  - {de: users-api, para: rabbitmq, relacao: acessa-via}
+  - {de: notifications-worker, para: usuario-criado, relacao: consome}
+  - {de: notifications-worker, para: pagamento-processado, relacao: consome}
+  - {de: notifications-worker, para: rabbitmq, relacao: acessa-via}
+  # dados
+  - {de: users-api, para: sqlite-users, relacao: grava}
+  - {de: catalog-api, para: sqlite-catalog, relacao: grava}
+  - {de: catalog-worker, para: sqlite-catalog, relacao: grava}
+  - {de: catalog-api, para: dynamo-jogos, relacao: grava}
+  - {de: catalog-api, para: dynamo-desejos, relacao: grava}
+  - {de: catalog-api, para: redis, relacao: chama}
+  - {de: payments-worker, para: sqlite-payments, relacao: grava}
+  - {de: payments-api, para: sqlite-payments, relacao: le}
+  # onde roda / acesso
+  - {de: users-api, para: eks-cluster, relacao: roda-em}
+  - {de: catalog-api, para: eks-cluster, relacao: roda-em}
+  - {de: catalog-worker, para: eks-cluster, relacao: roda-em}
+  - {de: payments-api, para: eks-cluster, relacao: roda-em}
+  - {de: payments-worker, para: eks-cluster, relacao: roda-em}
+  - {de: redis, para: eks-cluster, relacao: roda-em}
+  - {de: prometheus, para: eks-cluster, relacao: roda-em}
+  - {de: grafana, para: eks-cluster, relacao: roda-em}
+  - {de: alb, para: users-api, relacao: chama}
+  - {de: alb, para: catalog-api, relacao: chama}
+  - {de: alb, para: payments-api, relacao: chama}
+  - {de: alb, para: grafana, relacao: chama}
+  - {de: prometheus, para: users-api, relacao: chama}
+  - {de: prometheus, para: catalog-api, relacao: chama}
+  - {de: grafana, para: prometheus, relacao: le}
+  - {de: users-api, para: role-users, relacao: acessa-via}
+  - {de: catalog-api, para: role-catalog, relacao: acessa-via}
+  - {de: catalog-worker, para: role-catalog, relacao: acessa-via}
+  - {de: payments-api, para: role-payments, relacao: acessa-via}
+  - {de: payments-worker, para: role-payments, relacao: acessa-via}
+  - {de: users-api, para: secret-fcg-jwt, relacao: le}
+  - {de: users-api, para: secret-fcg-admin, relacao: le}
+  - {de: catalog-api, para: secret-fcg-jwt, relacao: le}
+  - {de: payments-api, para: secret-fcg-jwt, relacao: le}
+  - {de: grafana, para: secret-fcg-grafana, relacao: le}
+  # entrega
+  - {de: ci-cd-users, para: repo-users, relacao: roda-em}
+  - {de: ci-cd-catalog, para: repo-catalog, relacao: roda-em}
+  - {de: ci-cd-payments, para: repo-payments, relacao: roda-em}
+  - {de: ci-cd-users, para: ecr-users, relacao: publica-imagem-em}
+  - {de: ci-cd-catalog, para: ecr-catalog, relacao: publica-imagem-em}
+  - {de: ci-cd-payments, para: ecr-payments, relacao: publica-imagem-em}
+  - {de: ci-cd-users, para: eks-cluster, relacao: chama}
+  - {de: ci-cd-catalog, para: eks-cluster, relacao: chama}
+  - {de: ci-cd-payments, para: eks-cluster, relacao: chama}
+  - {de: ci-cd-users, para: role-github-deploy, relacao: acessa-via}
+  - {de: ci-cd-catalog, para: role-github-deploy, relacao: acessa-via}
+  - {de: ci-cd-payments, para: role-github-deploy, relacao: acessa-via}
+  - {de: eks-ligar, para: repo-orchestration, relacao: roda-em}
+  - {de: eks-desligar, para: repo-orchestration, relacao: roda-em}
+  - {de: eks-ligar, para: role-github-admin, relacao: acessa-via}
+  - {de: eks-desligar, para: role-github-admin, relacao: acessa-via}
+  - {de: eks-ligar, para: eks-cluster, relacao: grava}
+  - {de: eks-desligar, para: eks-cluster, relacao: grava}
+  - {de: eks-ligar, para: s3-tfstate, relacao: grava}
+  - {de: eks-ligar, para: dynamo-tflocks, relacao: le}
+  - {de: lambda-deploy, para: repo-lambda, relacao: roda-em}
+  - {de: lambda-deploy, para: notifications-lambda, relacao: grava}
+  - {de: events-publish, para: repo-events, relacao: roda-em}

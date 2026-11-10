@@ -1,150 +1,24 @@
-# FCGames - Kubernetes Orchestration
+# k8s — Kubernetes local (Kind / Docker Desktop)
 
-Este repositório contém os manifestos Kubernetes para orquestração da infraestrutura compartilhada do FCGames.
+Caminho antigo, só para cluster local. **Na AWS o deploy é outro:** [`k8s/eks`](eks/README.md).
 
-## Conteúdo
+Aqui ficam a infraestrutura comum (namespace, RabbitMQ, DynamoDB local); cada serviço tem os seus
+manifests na pasta `k8s/` do próprio repositório.
 
-- **Namespace**: Define o namespace `fcgames` para isolar todos os recursos
-- **RabbitMQ**: Message broker para comunicação assíncrona entre microsserviços
-
-## Deploy no Kubernetes
-
-### Pré-requisitos
-
-- Kubernetes cluster local (Kind, Minikube, k3d ou Docker Desktop Kubernetes)
-- kubectl configurado
-- Imagens Docker buildadas de todos os microsserviços
-
-### Buildando as Imagens Docker
-
-Antes de fazer o deploy, você precisa buildar as imagens Docker de cada microsserviço:
+1. Imagens locais: `docker build` em cada repositório (ver o README de cada um).
+2. Crie o Secret do RabbitMQ (o `rabbitmq-secret.yaml` daqui é só modelo) e aplique o resto:
 
 ```bash
-# Users API
-cd ../fcg-users-service
-docker build -t fcg-users-api:latest .
-
-# Catalog API e Worker
-cd ../fcg-catalog-service
-docker build -t fcg-catalog-api:latest -f Dockerfile .
-docker build -t fcg-catalog-worker:latest -f Dockerfile.worker .
-
-# Payments API e Worker
-cd ../fcg-payments-service
-docker build -t fcg-payments-api:latest -f Dockerfile .
-docker build -t fcg-payments-worker:latest -f Dockerfile.worker .
-
-# Notifications Worker
-cd ../fcg-notifications-service
-docker build -t fcg-notifications-worker:latest .
+kubectl apply -f k8s/namespace.yaml
+kubectl create secret generic rabbitmq-secret -n fcgames \
+  --from-literal=username="$RABBITMQ_USER" --from-literal=password="$RABBITMQ_PASS"
+kubectl apply -f k8s/rabbitmq-configmap.yaml -f k8s/rabbitmq-deployment.yaml -f k8s/rabbitmq-service.yaml \
+  -f k8s/dynamodb-local-deployment.yaml -f k8s/dynamodb-local-service.yaml
 ```
 
-### Ordem de Deploy
+3. Em cada serviço, siga o `k8s/README.md` dele (cria o Secret e aplica os manifests sem o modelo).
 
-1. **Criar Namespace e RabbitMQ (Infraestrutura)**
+4. Acesse com `kubectl port-forward` (ex.: `kubectl port-forward -n fcgames svc/users-api 5001:80`).
 
-```bash
-cd fcg-orchestration
-kubectl apply -f k8s/
-```
-
-2. **Aguardar RabbitMQ ficar pronto**
-
-```bash
-kubectl wait --for=condition=ready pod -l app=rabbitmq -n fcgames --timeout=300s
-```
-
-3. **Deploy dos Microsserviços**
-
-```bash
-# Users API
-cd ../fcg-users-service
-kubectl apply -f k8s/
-
-# Catalog API + Worker
-cd ../fcg-catalog-service
-kubectl apply -f k8s/
-
-# Payments API + Worker
-cd ../fcg-payments-service
-kubectl apply -f k8s/
-
-# Notifications Worker
-cd ../fcg-notifications-service
-kubectl apply -f k8s/
-```
-
-## Verificação
-
-### Ver todos os Pods
-
-```bash
-kubectl get pods -n fcgames
-```
-
-### Ver todos os Services
-
-```bash
-kubectl get services -n fcgames
-```
-
-### Ver ConfigMaps e Secrets
-
-```bash
-kubectl get configmaps -n fcgames
-kubectl get secrets -n fcgames
-```
-
-### Logs de um Pod específico
-
-```bash
-# Exemplo: ver logs do RabbitMQ
-kubectl logs -n fcgames -l app=rabbitmq
-
-# Exemplo: ver logs do Users API
-kubectl logs -n fcgames -l app=users-api
-```
-
-## Acesso aos Serviços
-
-Para acessar os serviços localmente, use port-forward:
-
-```bash
-# RabbitMQ Management UI
-kubectl port-forward -n fcgames svc/rabbitmq 15672:15672
-
-# Users API
-kubectl port-forward -n fcgames svc/users-api 5001:80
-
-# Catalog API
-kubectl port-forward -n fcgames svc/catalog-api 5002:80
-
-# Payments API
-kubectl port-forward -n fcgames svc/payments-api 5003:80
-
-# Notifications Worker
-kubectl port-forward -n fcgames svc/notifications-worker 5004:80
-```
-
-## Limpeza
-
-Para remover todos os recursos:
-
-```bash
-kubectl delete namespace fcgames
-```
-
-## Notas
-
-- **Secrets**: As credenciais padrão estão configuradas nos arquivos. Em produção, use valores seguros e considere usar ferramentas como Sealed Secrets ou External Secrets Operator.
-- **ConfigMaps**: Configurações não sensíveis como URLs de serviços e nomes de hosts.
-- **PersistentVolumeClaims**: Usado para persistir os bancos de dados SQLite. Em produção, considere usar bancos de dados externos.
-
-## Comunicação entre Serviços
-
-Os serviços se comunicam internamente usando os nomes de Service do Kubernetes:
-- `http://rabbitmq:5672` - RabbitMQ AMQP
-- `http://users-api:80` - Users API
-- `http://catalog-api:80` - Catalog API
-- `http://payments-api:80` - Payments API
-- `http://notifications-worker:80` - Notifications Worker
+Não use `k8s/deploy.sh` / `deploy.ps1`: eles aplicam as pastas inteiras, inclusive os modelos de
+Secret com `REPLACE_ME`, por cima dos Secrets reais.

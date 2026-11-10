@@ -1,66 +1,41 @@
-# Cluster EKS — fcg-eks
+# infra/eks — cluster fcg-eks
 
-Cluster Kubernetes gerenciado (AWS EKS) da Fase 4. **Liga e desliga a cada sessão** para
-não gerar custo — ele não fica de pé entre sessões.
-
-Design: [`docs/superpowers/specs/2026-10-06-eks-cluster-design.md`](../../docs/superpowers/specs/2026-10-06-eks-cluster-design.md)
-
-## Custo
-
-~**US$ 0,20/h** ligado (control plane US$ 0,10 + 2× t3.small ~0,07 + ALB ~0,03).
-A conta está no **plano FREE** da AWS: o custo sai dos créditos (`aws freetier get-account-plan-state --region us-east-1`).
-EKS não tem free tier. **Sempre rode o `eks-down.sh` ao terminar.**
-
-## Pré-requisitos
-
-- AWS CLI v2, Terraform ≥ 1.5, kubectl (no Windows, rodar os scripts pelo Git Bash)
-- Profile AWS da conta do time: `aws configure --profile fcg-team` (conta `915153720516`)
-- Seu usuário IAM em `admin_principal_arns` (`variables.tf`) — confira com
-  `aws sts get-caller-identity`
+Terraform do cluster Kubernetes gerenciado (AWS EKS, conta `915153720516`, `sa-east-1`). **Liga e
+desliga a cada sessão**: ~US$ 0,20/h ligado (control plane + 2× t3.small + ALB), pago com os créditos
+da conta, que está no plano FREE. EKS não tem free tier.
 
 ## Ligar / desligar
 
+Pelos botões do GitHub (ver o [README da raiz](../../README.md)) ou pela máquina, no Git Bash:
+
 ```bash
-./scripts/eks-up.sh     # ~15-20 min — cria tudo e configura o kubectl
-./scripts/eks-down.sh   # ~10-15 min — apaga Ingress/ALB e destrói o cluster
+./scripts/eks-up.sh     # ~15 min; exige ADMIN_PASSWORD e GRAFANA_PASSWORD (ambiente ou .env)
+./scripts/eks-down.sh   # ~12 min; apaga o ALB e destrói tudo (não precisa das senhas)
 ```
 
-Para usar outro profile: `AWS_PROFILE=meu-profile ./scripts/eks-up.sh`.
+Pela máquina: AWS CLI v2, Terraform ≥ 1.5, kubectl, profile `fcg-team` e seu usuário IAM em
+`admin_principal_arns` (`variables.tf`). Estado no S3 com lock no DynamoDB.
 
 ## O que é criado
 
 | Recurso | Detalhe |
 |---|---|
-| Cluster `fcg-eks` | Kubernetes 1.36, VPC default, subnets públicas (sem NAT) |
-| Node group | 2× t3.small (AL2023). O plano FREE só aceita tipos free-tier-eligible (t3.medium é recusado). Mudar quantidade: `TF_VAR_node_desired_size=3 ./scripts/eks-up.sh` |
+| Cluster `fcg-eks` | Kubernetes 1.36, VPC default, subnets públicas, sem NAT |
+| Node group | 2× `t3.small` (o plano FREE recusa tipos maiores, como t3.medium) |
 | Addons | vpc-cni, coredns, kube-proxy, eks-pod-identity-agent, metrics-server |
-| AWS Load Balancer Controller | Ingress `ingressClassName: alb` → ALB internet-facing |
-| Namespace `fcgames` | onde os serviços rodam |
-| ServiceAccounts | `users-api`, `catalog-api`, `payments-api` — cada uma com role IAM via Pod Identity (SQS/SNS; catalog também DynamoDB) |
-| Secret `fcg-jwt` | chave `jwt-key`, gerada aleatoriamente a cada criação |
-| Acesso | admins do time (cluster-admin); role do GitHub Actions (edit só em `fcgames`) |
+| AWS Load Balancer Controller | transforma o Ingress em um ALB público |
+| Namespace `fcgames` + ServiceAccounts | `users-api`, `catalog-api`, `payments-api`, cada uma com role IAM própria via Pod Identity (SQS/SNS; o catalog também DynamoDB) |
+| Secrets | `fcg-jwt` (chave do JWT, aleatória a cada criação), `fcg-admin` e `fcg-grafana` (senhas vindas de `ADMIN_PASSWORD`/`GRAFANA_PASSWORD`) |
+| Acesso | admins do time (cluster-admin) e a role do GitHub Actions |
 
-Fica **fora** do cluster e sobrevive ao destroy: ECR, DynamoDB, SQS/SNS, state no S3.
+Fica **fora** do cluster e sobrevive ao desligar: ECR, DynamoDB (`Jogos`, `Desejos`), SQS/SNS,
+Lambda de notificações e o estado do Terraform.
 
-## Smoke test
+## Problemas comuns
 
-```bash
-kubectl apply -f infra/eks/manifests/smoke-test.yaml
-kubectl get ingress smoke-nginx -w        # espera aparecer o ADDRESS (2-3 min)
-curl http://<ADDRESS>/                    # página do nginx
-kubectl delete -f infra/eks/manifests/smoke-test.yaml
-```
-
-## Troubleshooting
-
-| Sintoma | Causa / solução |
+| Sintoma | Solução |
 |---|---|
-| `error: You must be logged in to the server (Unauthorized)` | seu ARN não está em `admin_principal_arns` |
-| `eks-up.sh` falhou no meio | rode de novo — o Terraform continua de onde parou |
-| `eks-down.sh` parou com "ainda existem ALBs do cluster" | `kubectl get ingress -A`; logs: `kubectl logs -n kube-system deploy/aws-load-balancer-controller` |
-| `eks-down.sh` com AVISO de cluster inacessível / parou com ALBs restantes | se os ALBs do cluster realmente já sumiram (`aws elbv2 describe-load-balancers`), rode `cd infra/eks && terraform destroy` manualmente |
-| Service `type: LoadBalancer` | também cria um NLB `k8s-...` — apague (`kubectl delete svc <nome>`) antes do `eks-down.sh` |
-| Ingress sem ADDRESS | `kubectl describe ingress <nome>` — normalmente subnet sem tag ou controller sem permissão |
-| Node group preso em CREATING | `aws autoscaling describe-scaling-activities` no ASG `eks-default-*` — "not eligible for Free Tier" = tipo de instância fora do plano FREE |
-| `kubectl top` → "Metrics API not available" | regra do SG de node para a porta 10251 (metrics-server) faltando — ver `eks.tf` |
-| Versão do k8s entrou em extended support (US$ 0,60/h) | subir `kubernetes_version` em `variables.tf` |
+| `Unauthorized` no kubectl | seu ARN não está em `admin_principal_arns` |
+| `eks-up.sh` falhou no meio | rode de novo (continua de onde parou) ou rode o desligar |
+| `eks-down.sh` parou com "ainda existem ALBs" | `kubectl get ingress -A` e os logs do `aws-load-balancer-controller` |
+| Node group preso em CREATING | tipo de instância fora do plano FREE (`aws autoscaling describe-scaling-activities`) |

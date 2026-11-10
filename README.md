@@ -1,314 +1,85 @@
 # fcg-orchestration
 
-Repositório de infraestrutura do FCGames: `docker-compose`, manifests k8s,
-contratos de referência e documentação. É daqui que você sobe a stack completa.
+Infraestrutura e roteiros do FCGames: o `docker-compose` da stack local, o cluster EKS da AWS
+(Terraform + manifests + botões de ligar/desligar) e os arquivos `.http` de teste.
 
-> 📐 Arquitetura geral: [`../CLAUDE.md`](../CLAUDE.md)
-> 📑 Endpoints, contratos e dados: [`docs/API-REFERENCE.md`](docs/API-REFERENCE.md)
-> 📋 Convenção de nomenclatura: [`docs/ADR-001-convencao-nomenclatura.md`](docs/ADR-001-convencao-nomenclatura.md)
+## O que tem aqui
 
----
+| Pasta / arquivo | O que é |
+|---|---|
+| `docker-compose.yml` · `.env.example` | stack local: RabbitMQ, DynamoDB local, as APIs e os workers |
+| `infra/eks/` | Terraform do cluster `fcg-eks` (liga e desliga a cada sessão) — [README](infra/eks/README.md) |
+| `infra/github-ci/` | permissões permanentes do GitHub Actions na AWS — [README](infra/github-ci/README.md) |
+| `k8s/eks/` | manifests dos serviços e da observabilidade no EKS — [README](k8s/eks/README.md) |
+| `k8s/` | caminho antigo com Kubernetes local (Kind) — [README](k8s/README.md) |
+| `scripts/` | `eks-up.sh`, `eks-down.sh`, `eks-e2e.sh` |
+| `.github/workflows/` | botões **Ligar cluster EKS** e **Desligar cluster EKS** |
+| `fcgames.http` · `fcgames.eks.http` | fluxo de ponta a ponta (local e EKS) |
+| `docs/` | [índice das referências](docs/API-REFERENCE.md), ADRs, specs e planos |
 
-## 0. Arquitetura Fase 3 (AWS)
+Os serviços ficam cada um no seu repositório: `fcg-users-service`, `fcg-catalog-service`,
+`fcg-payments-service`, `fcg-notifications-service`, `fcg-notifications-lambda` e
+`fcg-integration-events` (contratos dos eventos).
 
-Além da stack local (docker-compose/k8s, seções 1-9 abaixo, usada pra desenvolvimento),
-o projeto tem uma versão rodando na AWS que atende aos pilares da Fase 3:
+## Rodar local (docker compose)
 
-| Pilar | Implementação | Onde |
-|---|---|---|
-| **API Gateway** | 3 HTTP APIs (v2) — uma por serviço (Users/Catalog/Payments), `HTTP_PROXY` apontando pra EC2 do ECS de cada um | `<repo>/infra/api_gateway.tf` em cada serviço |
-| **Serverless** | Lambda .NET 10 (`provided.al2023`, ARM64) consome a fila SQS de notificações, substituindo o worker 24/7 | `fcg-notifications-lambda` (repo próprio) |
-| **NoSQL** | DynamoDB — tabelas `Jogos` (catálogo) e `Desejos` (wishlist, partition key `UsuarioId`) | `fcg-catalog-service/app/.../Infra/DataProvider/Dynamo` |
-| **Mensageria** | MassTransit com transporte por config (`Messaging:Provider=Sqs` → Amazon SQS/SNS; `RabbitMQ:Host` → RabbitMQ). Users/Catalog/Payments têm Task Role + policy IAM (SQS/SNS auto-provisionados pelo MassTransit) | `infra/ecs.tf` de cada serviço |
-| **Observabilidade** | Prometheus (scrape de Users/Catalog/Payments/Notifications) + Grafana com dashboard provisionado | `fcg-observabilidade-service` |
+1. Clone os repositórios lado a lado, **com os nomes do GitHub** (o compose monta as imagens a partir
+   de `../fcg-users-service`, `../fcg-catalog-service`, `../fcg-payments-service` e
+   `../fcg-notifications-service`).
+2. `cp .env.example .env` e preencha. Valores sem `"`, `\`, `$` nem espaço.
 
----
+| Variável do `.env` | O que é |
+|---|---|
+| `NUGET_AUTH_TOKEN` | token do GitHub com `read:packages` (ex.: `gh auth token`) |
+| `JWT_KEY` | chave do JWT, a mesma para todos os serviços (32+ caracteres) |
+| `RABBITMQ_USER` · `RABBITMQ_PASS` | credenciais do RabbitMQ local |
+| `ADMIN_PASSWORD` | senha do `admin@fcgames.com` (também usada pelos `.http`) |
+| `GRAFANA_PASSWORD` | senha do admin do Grafana (só para ligar o EKS pela sua máquina) |
 
-## 1. Pré-requisitos
-
-- **Docker Desktop** (com Docker Compose v2)
-- **.NET 10 SDK** — só se for rodar algum serviço fora do container
-- **PAT do GitHub** com scope `read:packages` — para restaurar o pacote
-  `FCGames.IntegrationEvents` durante o build das imagens
-- Os **5 repositórios clonados como pastas irmãs**:
-  ```
-  C:\GIT\FIAP\FIAP-POS-TECH-TEAM-10\
-    ├── fcg-users-service
-    ├── fcg-catalog-service
-    ├── fcg-payments-service
-    ├── fcg-notifications-service
-    └── fcg-orchestration   ← você roda os comandos daqui
-  ```
-
----
-
-## 2. Setup (uma vez)
+3. Suba e teste:
 
 ```bash
-# a partir de fcg-orchestration/
-cp .env.example .env
-```
-
-Edite o `.env` e preencha:
-
-| Variável | O que é |
-|----------|---------|
-| `NUGET_AUTH_TOKEN` | PAT com `read:packages` (restaura o pacote de eventos no build) |
-| `JWT_KEY` | Chave de assinatura JWT, **idêntica** nos 3 serviços (mín. 32 chars) |
-| `RABBITMQ_USER` / `RABBITMQ_PASS` | Credenciais do broker RabbitMQ (obrigatórias, sem valor padrão) |
-| `ADMIN_PASSWORD` | Senha do usuário `admin@fcgames.com` criado pelo users-api (local e EKS; no EKS vem do secret do GitHub) |
-| `GRAFANA_PASSWORD` | Senha do admin do Grafana no EKS (secret do GitHub; o `eks-up.sh` lê do ambiente ou do `.env`) |
-
-> O `.env` **não é commitado** (está no `.gitignore`).
-
----
-
-## 3. Subir a stack completa
-
-```bash
-# build + sobe tudo em background
 docker compose up -d --build
-
-# acompanhar os logs de todos os serviços
-docker compose logs -f
+docker compose ps                                  # tudo healthy
+docker compose logs -f notifications-worker        # "e-mails" simulados
 ```
 
-A ordem de inicialização é controlada por healthcheck:
-`rabbitmq` (healthy) → APIs (criam/migram o banco) → workers.
+| Serviço | Porta local |
+|---|---|
+| users · catalog · payments | 5001 · 5002 · 5003 (Swagger em http://localhost:5001/swagger; catalog e payments só têm Swagger rodando em Development) |
+| notifications-worker | 5004 (só `/health`) |
+| RabbitMQ | 5672 · painel em http://localhost:15672 |
+| DynamoDB local | 8000 |
 
-### O que sobe
+O roteiro de teste está em [`fcgames.http`](fcgames.http) (REST Client do VS Code ou HTTP Client do
+Rider): cadastro → login → jogos → compra aprovada (Hades) e rejeitada (Cyberpunk, > R$ 100) →
+pedido → pagamento → biblioteca. `docker compose down -v` zera os dados.
 
-| Serviço | Container | Porta | Acesso |
-|---------|-----------|-------|--------|
-| RabbitMQ | `fcg-rabbitmq` | 5672 / 15672 | Management UI: http://localhost:15672 |
-| UsersAPI | `fcg-users-api` | 5001 | Swagger: http://localhost:5001/swagger |
-| CatalogAPI | `fcg-catalog-api` | 5002 | Swagger: http://localhost:5002/swagger |
-| Catalog Worker | `fcg-catalog-worker` | — | consumer (sem porta) |
-| PaymentsAPI | `fcg-payments-api` | 5003 | Swagger: http://localhost:5003/swagger |
-| Payments Worker | `fcg-payments-worker` | — | consumer (sem porta) |
-| Notifications | `fcg-notifications-worker` | 5004 | só `/health` |
+## Cluster EKS na AWS
 
-> Catalog e Payments rodam **2 containers cada** (API publisher + Worker consumer),
-> compartilhando o mesmo arquivo SQLite via volume. O worker espera a API ficar
-> healthy para evitar corrida de migration.
-
----
-
-## 4. Verificar se está tudo no ar
-
-```bash
-docker compose ps                              # status de cada container
-curl http://localhost:5001/health              # UsersAPI
-curl http://localhost:5002/health              # CatalogAPI
-curl http://localhost:5003/health              # PaymentsAPI
-curl http://localhost:5004/health              # Notifications
-```
-
-**RabbitMQ Management UI:** http://localhost:15672 (login com `RABBITMQ_USER`/`RABBITMQ_PASS` do `.env`)
-— veja as filas sendo criadas e as mensagens passando em tempo real.
-
----
-
-## 5. Testar o fluxo end-to-end
-
-O arquivo [`fcgames.http`](fcgames.http) tem o roteiro completo (use a extensão
-REST Client no VS Code ou o cliente `.http` do Rider/Visual Studio):
-
-```
-1. POST /usuarios            cria usuário  → biblioteca criada + log boas-vindas
-2. POST /usuarios/login      pega o JWT
-3. POST /jogos               (como Admin) cadastra um jogo
-4. GET  /jogos               lista o catálogo
-5. POST /compras             compra → fluxo assíncrono
-6. GET  /compras/{id}        status do pedido (Aprovado/Rejeitado)
-7. GET  /biblioteca/{uid}    jogo aparece na biblioteca (se Aprovado)
-```
-
-Acompanhe os logs do Notifications para ver os "e-mails":
-```bash
-docker compose logs -f notifications-worker
-```
-
----
-
-## 6. Rodar UM serviço isolado (sem Docker, para desenvolver)
-
-Suba só o RabbitMQ no Docker e rode o serviço pelo SDK:
-
-```bash
-# só o broker
-docker compose up -d rabbitmq
-
-# em outro terminal, no repo do serviço (ex: fcg-catalog-service)
-export NUGET_AUTH_TOKEN=ghp_...        # (Windows PowerShell: $env:NUGET_AUTH_TOKEN="ghp_...")
-dotnet restore
-dotnet run --project app/src/Fiap.FCGames.Catalogo.Api
-```
-
-> O serviço conecta no `localhost:5672`. As env vars (JWT, connection string,
-> RabbitMQ) podem ir no `appsettings.Development.json` ou no ambiente.
-
----
-
-## 7. Comandos úteis do dia a dia
-
-```bash
-docker compose logs -f users-api          # logs de um serviço
-docker compose restart catalog-api        # reiniciar um serviço
-docker compose up -d --build catalog-api  # rebuildar só um serviço
-
-docker compose down                       # para e remove containers (mantém volumes/dados)
-docker compose down -v                    # para e APAGA os volumes (banco zerado)
-
-docker compose ps                         # status
-docker volume ls                          # ver volumes de dados (prefixo fcgames_)
-```
-
----
-
-## 8. Deploy no Kubernetes
-
-### Estrutura dos Manifestos
-
-Cada microsserviço tem sua pasta `/k8s` com os manifestos Kubernetes:
-
-```
-fcg-orchestration/k8s/     ← Namespace + RabbitMQ (infraestrutura)
-fcg-users-service/k8s/     ← Users API
-fcg-catalog-service/k8s/   ← Catalog API + Worker
-fcg-payments-service/k8s/  ← Payments API + Worker
-fcg-notifications-service/k8s/ ← Notifications Worker
-```
-
-### Deploy Rápido
-
-```bash
-# A partir do diretório fcg-orchestration
-
-# Windows PowerShell
-.\k8s\deploy.ps1
-
-# Linux/Mac
-chmod +x k8s/deploy.sh
-./k8s/deploy.sh
-```
-
-### Deploy Manual (passo a passo)
-
-```bash
-# 1. Buildar as imagens Docker primeiro
-cd ../fcg-users-service
-docker build -t fcg-users-api:latest .
-
-cd ../fcg-catalog-service
-docker build -t fcg-catalog-api:latest -f Dockerfile .
-docker build -t fcg-catalog-worker:latest -f Dockerfile.worker .
-
-cd ../fcg-payments-service
-docker build -t fcg-payments-api:latest -f Dockerfile .
-docker build -t fcg-payments-worker:latest -f Dockerfile.worker .
-
-cd ../fcg-notifications-service
-docker build -t fcg-notifications-worker:latest .
-
-# 2. Aplicar manifestos em ordem
-cd ../fcg-orchestration
-
-kubectl apply -f k8s/                           # Namespace + RabbitMQ + DynamoDB Local
-kubectl wait --for=condition=ready pod -l app=rabbitmq -n fcgames --timeout=300s
-kubectl wait --for=condition=ready pod -l app=dynamodb-local -n fcgames --timeout=300s
-
-kubectl apply -f ../fcg-users-service/k8s/      # Users API
-kubectl apply -f ../fcg-catalog-service/k8s/    # Catalog API + Worker (usa o DynamoDB Local pra entidade Jogo)
-kubectl apply -f ../fcg-payments-service/k8s/   # Payments API + Worker
-kubectl apply -f ../fcg-notifications-service/k8s/  # Notifications Worker
-
-# 3. Verificar status
-kubectl get pods -n fcgames
-kubectl get services -n fcgames
-```
-
-### 🌐 Acessar os Serviços (Port Forward)
-
-```bash
-# Em terminais separados:
-kubectl port-forward -n fcgames svc/users-api 5001:80
-kubectl port-forward -n fcgames svc/catalog-api 5002:80
-kubectl port-forward -n fcgames svc/payments-api 5003:80
-kubectl port-forward -n fcgames svc/notifications-worker 5004:80
-kubectl port-forward -n fcgames svc/rabbitmq 15672:15672
-kubectl port-forward -n fcgames svc/dynamodb-local 8000:8000   # inspecionar a tabela Jogos (ex.: aws dynamodb scan --endpoint-url http://localhost:8000)
-```
-
-Agora acesse:
-- http://localhost:5001/swagger - Users API
-- http://localhost:5002/swagger - Catalog API
-- http://localhost:5003/swagger - Payments API
-- http://localhost:15672 - RabbitMQ Management
-
-### Monitoramento
-
-```bash
-# Ver todos os pods
-kubectl get pods -n fcgames
-
-# Logs de um serviço específico
-kubectl logs -n fcgames -l app=users-api -f
-kubectl logs -n fcgames -l app=catalog-worker -f
-kubectl logs -n fcgames -l app=notifications-worker -f
-
-# Descrever um pod
-kubectl describe pod -n fcgames <pod-name>
-
-# Ver eventos
-kubectl get events -n fcgames --sort-by='.lastTimestamp'
-```
-
-### Limpeza
-
-```bash
-# Remover tudo (namespace + todos os recursos)
-kubectl delete namespace fcgames
-```
-
-## 8.1 Cluster EKS (AWS) — ligar/desligar pelo GitHub
-
-O cluster `fcg-eks` (Fase 4) **não fica ligado**: custa ~US$ 0,20/h (sai dos créditos da conta).
-Qualquer pessoa do time com acesso de escrita ao repo liga/desliga pela aba **Actions**:
+O cluster `fcg-eks` **não fica ligado** (~US$ 0,20/h, sai dos créditos da conta). Pela aba
+**Actions** deste repositório, qualquer pessoa com escrita:
 
 | Workflow | O que faz |
 |---|---|
-| **Ligar cluster EKS** (Run workflow) | `scripts/eks-up.sh` (~20 min): cluster + serviços de `k8s/eks`; opção "testar" roda o `eks-e2e.sh`. O resumo do run mostra a **URL do ALB** |
-| **Desligar cluster EKS** (Run workflow) | `scripts/eks-down.sh` (~12 min): apaga Ingress/ALB e destrói o cluster |
-| **Desligar cluster EKS** (automático) | toda noite às **03:00 (BRT)** — se estiver ligado, desliga; se não, "nada a fazer" |
+| **Ligar cluster EKS** | `scripts/eks-up.sh` (~15 min): cluster, serviços, Prometheus e Grafana. Com "testar" marcado, roda o `eks-e2e.sh`. O resumo mostra a URL da API e a do Grafana (`/grafana`) |
+| **Desligar cluster EKS** | `scripts/eks-down.sh` (~12 min): apaga o ALB e destrói o cluster |
+| **Desligar cluster EKS** (automático) | toda noite às 03:00 (BRT), se estiver ligado |
 
-- Os dois rodam no Environment `aws-eks` (só a branch `main`) com a role `GitHubActions-EKS-Admin` (ver `infra/github-ci/`). Nunca rodam ao mesmo tempo.
-- Também dá para rodar os scripts da própria máquina (`./scripts/eks-up.sh` / `eks-down.sh`, profile `fcg-team`). Se o workflow estiver rodando ao mesmo tempo, o segundo falha com "state locked" — sem dano, é só esperar.
-- Se o "Ligar" falhar no meio, o cluster pode ter ficado ligado: rode o "Desligar".
-- O agendamento das 03:00 é a principal proteção contra esquecer o cluster ligado, mas o GitHub **desativa workflows agendados após 60 dias sem atividade no repo** e pode atrasar execuções — confira de vez em quando na aba Actions que o *Desligar cluster EKS* está habilitado.
-- Um cluster criado antes desta mudança (sem o acesso da role do GitHub) não é desligado pelo botão — desligue com o script local.
+- As senhas do admin e do Grafana vêm dos secrets `ADMIN_PASSWORD` e `GRAFANA_PASSWORD` do
+  Environment `aws-eks`; quem liga não precisa saber os valores.
+- Pela máquina: `./scripts/eks-up.sh` / `./scripts/eks-down.sh` (Git Bash, profile `fcg-team`, senhas
+  no `.env`). Script e workflow ao mesmo tempo dão "state locked", sem dano: espere.
+- Se o Ligar falhar no meio, rode o Desligar.
+- O GitHub desativa agendamentos após 60 dias sem atividade no repositório: confira de vez em quando
+  que o **Desligar cluster EKS** continua habilitado.
+- Testar à mão: [`fcgames.eks.http`](fcgames.eks.http) com a URL do ALB do resumo.
 
-Criação do Environment (uma vez, precisa de admin no repo):
+## Problemas comuns
 
-```bash
-gh api -X PUT repos/FIAP-POS-TECH-TEAM-10/fcg-orchestration/environments/aws-eks \
-  -F "deployment_branch_policy[protected_branches]=false" \
-  -F "deployment_branch_policy[custom_branch_policies]=true"
-gh api -X POST repos/FIAP-POS-TECH-TEAM-10/fcg-orchestration/environments/aws-eks/deployment-branch-policies \
-  -f name=main -f type=branch
-```
-
-## 9. Troubleshooting
-
-| Sintoma | Causa provável | Solução |
-|---------|----------------|---------|
-| Build falha no `dotnet restore` | `NUGET_AUTH_TOKEN` ausente/expirado | Gerar PAT com `read:packages` e por no `.env` |
-| `401` ao chamar endpoints | JWT inválido ou `JWT_KEY` diferente entre serviços | Conferir que `JWT_KEY` é idêntico no `.env` |
-| Mensagem não chega no consumer | Nome/namespace do evento divergente | Eventos só do pacote `FCGames.IntegrationEvents` |
-| Worker sobe antes da API | corrida de migration | Já tratado via `depends_on: condition: service_healthy` |
-| Banco "sujo" entre testes | volume persistido | `docker compose down -v` para zerar |
-| Porta ocupada | outro processo na 5001-5004/5672 | parar o processo ou ajustar a porta no compose |
-| Pods não iniciam no K8s | Imagens não existem localmente | Buildar imagens antes do `kubectl apply` |
-| Worker não consome mensagens | RabbitMQ não está healthy | Aguardar RabbitMQ inicializar completamente |
-
----
+| Sintoma | Solução |
+|---|---|
+| Build falha no `dotnet restore` (401) | `NUGET_AUTH_TOKEN` vencido: `gh auth refresh -s read:packages` e use `gh auth token` |
+| `401` nos endpoints | `JWT_KEY` diferente entre serviços, ou token vencido: faça login de novo |
+| Compose não acha os serviços | pastas clonadas com outro nome (ver "Rodar local", passo 1) |
+| 502/503 logo depois de ligar o EKS | o ALB leva 1–3 min para registrar os pods |

@@ -1,50 +1,38 @@
-# Serviços no EKS (`k8s/eks`)
+# k8s/eks — o que roda no cluster
 
-Manifests (YAML + Kustomize) dos serviços do FCGames no cluster `fcg-eks`.
-Aplicados automaticamente pelo `scripts/eks-up.sh`. Design:
-[`docs/superpowers/specs/2026-10-06-eks-services-design.md`](../../docs/superpowers/specs/2026-10-06-eks-services-design.md).
+Manifests (YAML + Kustomize) aplicados pelo `scripts/eks-up.sh` no namespace `fcgames`.
 
-## O que roda (namespace `fcgames`)
+| Deployment | Containers | Imagem |
+|---|---|---|
+| `users-api` | api (5001) | ECR `fcg-users-service:latest` |
+| `catalog-api` | api (5002) + worker | ECR `fcg-catalog-service:latest` / `:worker-latest` |
+| `payments-api` | api (5003) + worker | ECR `fcg-payments-service:latest` / `:worker-latest` |
+| `redis` | cache do catalog | `redis:alpine` (ECR público) |
+| `prometheus` | coleta `/metrics` de users e catalog (sem acesso externo) | `prom/prometheus` |
+| `grafana` | painel "FCGames — Observabilidade", anônimo só leitura | `grafana/grafana` |
 
-| Deployment | Containers | Porta | Imagem (ECR) |
-|---|---|---|---|
-| `users-api` | api | 5001 | `fcg-users-service:latest` |
-| `catalog-api` | api + worker (mesmo pod, SQLite em `emptyDir`) | 5002 | `fcg-catalog-service:latest` / `:worker-latest` |
-| `payments-api` | api + worker (mesmo pod, SQLite em `emptyDir`) | 5003 | `fcg-payments-service:latest` / `:worker-latest` |
-| `redis` | redis (cache do catalog) | 6379 | `public.ecr.aws/docker/library/redis:alpine` |
+Um Ingress cria **um ALB** com rotas por caminho: `/usuarios` → users · `/jogos`, `/compras`,
+`/biblioteca`, `/desejos` → catalog · `/pagamentos` → payments · `/grafana` → Grafana.
+A URL muda a cada "Ligar": veja no resumo do workflow ou com `kubectl get ingress -n fcgames`.
 
-Um Ingress (`fcgames`) cria **um ALB** com rotas por path:
-`/usuarios` → users · `/jogos`, `/compras`, `/biblioteca`, `/desejos` → catalog · `/pagamentos` → payments.
-
-Vem do Terraform (`infra/eks`), não daqui: namespace, ServiceAccounts com Pod Identity
-(credenciais AWS sem access key) e o Secret `fcg-jwt` (`JWT__KEY`).
-
-**SQLite é efêmero**: cada restart/deploy de pod zera Pedidos/Bibliotecas/Pagamentos/Usuários
-(o admin seed é recriado). Jogos e Desejos ficam no DynamoDB e persistem. Por isso `replicas: 1`
-e **sem HPA** (cada réplica teria seu próprio banco).
-
-## Comandos
+- Configuração comum em `config.env` (ConfigMap); segredos nos Secrets `fcg-jwt`, `fcg-admin` e
+  `fcg-grafana`, criados pelo Terraform (`infra/eks`).
+- SQLite em disco efêmero: cada restart ou deploy zera usuários, pedidos, bibliotecas e pagamentos
+  (o admin é recriado). Por isso 1 réplica e sem HPA. Jogos e desejos ficam no DynamoDB.
+- Deploy sem downtime: rolling update com readiness `/health`, readiness gate do ALB e `preStop` de 15 s.
+- Grafana como admin (editar painel): `kubectl port-forward svc/grafana 3000:80 -n fcgames` e login
+  `admin` com a senha de `GRAFANA_PASSWORD`. O ALB é HTTP, por isso não se loga por ele.
 
 ```bash
-kubectl apply -k k8s/eks                          # aplicar (o eks-up.sh já faz)
-kubectl kustomize k8s/eks                         # ver o YAML final sem aplicar
 kubectl get pods -n fcgames
 kubectl logs -n fcgames deploy/catalog-api -c worker -f
-kubectl rollout restart deploy/users-api -n fcgames  # rolling update sem downtime
-./scripts/eks-e2e.sh                              # fluxo completo pelo ALB
+kubectl rollout restart deploy/users-api -n fcgames
+./scripts/eks-e2e.sh                       # fluxo completo pelo ALB + Grafana + Prometheus
 ```
-
-## Sem downtime — como funciona
-
-`maxSurge: 1` / `maxUnavailable: 0` + readiness `/health` + *pod readiness gate* do ALB
-(label no namespace) + `preStop` de 15 s casado com `deregistration_delay` de 15 s no target group.
-No primeiro deploy (Ingress e pods criados juntos) o readiness gate ainda não é injetado — ele vale para os rollouts seguintes (`rollout restart`, pipeline).
-
-## Troubleshooting
 
 | Sintoma | Causa provável |
 |---|---|
-| `ImagePullBackOff` | imagem não existe no ECR (lifecycle mantém só as últimas 10) — rebuild/push |
-| `CrashLoopBackOff` no worker | ver `kubectl logs ... -c worker --previous`; 1 restart no 1º start é normal (lock de migração) |
-| 502/503 no ALB logo após subir | target group ainda registrando — aguarde 1-2 min |
-| Pod `Pending` | memória dos 2× t3.small esgotada — `kubectl describe pod` e `kubectl top pods -n fcgames` |
+| `ImagePullBackOff` | imagem não existe no ECR (ficam as últimas 10): rode o pipeline do serviço |
+| 502/503 logo depois de subir | o ALB ainda está registrando os pods: espere 1–3 min |
+| Pod `Pending` | memória dos 2 nodes esgotada: `kubectl describe pod` e `kubectl top pods -n fcgames` |
+| 1 restart do worker no início | normal (lock da migração do SQLite) |
