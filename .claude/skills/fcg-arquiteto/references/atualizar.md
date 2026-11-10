@@ -18,10 +18,22 @@ Revise depois de qualquer mudança que altere endpoints, eventos, filas, infra, 
 Grafo do código e das docs, gerado localmente (não versionado):
 
 ```bash
-pip install graphifyy && python -m graphify install   # uma vez por máquina
+pip install "graphifyy[terraform,mcp]" && python -m graphify install   # uma vez por máquina
 ```
 
-No Claude Code, na pasta que contém todos os repositórios: `/graphify .` (primeira vez) ou
-`/graphify . --update` (depois de mudanças). Saída em `graphify-out/` (`graph.json`,
-`GRAPH_REPORT.md`, `graph.html`). Consultas: `/graphify query "..."`, `/graphify path "A" "B"`,
-`/graphify explain "X"`. O Graphify não lê `.yaml`/`.tf`; a infra vem destas referências.
+Na pasta que contém todos os repositórios:
+
+1. Crie um `.graphifyignore` (sintaxe do `.gitignore`) com `bin/`, `obj/`, `.terraform/`,
+   `docs/superpowers/`, `*.db*` e os checkouts que não estiverem na `main`.
+2. No Claude Code: `/graphify .` (primeira vez) ou `/graphify . --update` (depois de mudanças; só
+   reprocessa o que mudou). Saída em `graphify-out/` (`graph.json`, `GRAPH_REPORT.md`, `graph.html`).
+3. Ligue ao agente como MCP (uma vez, só para você):
+   `claude mcp add graphify --scope local -- python -m graphify.serve <pasta>/graphify-out/graph.json`
+   e confira com `claude mcp get graphify` (Status: Connected).
+
+Consultas: `/graphify query "..."`, `/graphify path "A" "B" --undirected`, `/graphify explain "X"`
+(se o nome existir em dois serviços, use `caminho/do/arquivo.cs::Nome`).
+
+Limites: o grafo vem da análise do código, então **não enxerga a comunicação entre serviços pelo
+barramento** (ex.: não há caminho do controller de compras até o consumer do payments). Para isso use o
+`grafo.yaml` desta skill. `Program.cs` com instruções de nível superior não gera símbolos.
