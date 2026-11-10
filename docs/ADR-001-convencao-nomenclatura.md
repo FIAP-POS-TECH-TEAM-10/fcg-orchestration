@@ -129,6 +129,6 @@ Estes termos **nunca** devem ser traduzidos, independentemente do contexto:
 
 ## Links relacionados
 
-- [CLAUDE.md — Arquitetura geral](../../CLAUDE.md)
-- [API-REFERENCE.md — Detalhamento técnico](./API-REFERENCE.md)
+- [README do fcg-orchestration — visão geral](../README.md)
+- [API-REFERENCE.md — índice das referências](./API-REFERENCE.md)
 - [fcg-integration-events — Pacote de eventos](https://github.com/FIAP-POS-TECH-TEAM-10/fcg-integration-events)

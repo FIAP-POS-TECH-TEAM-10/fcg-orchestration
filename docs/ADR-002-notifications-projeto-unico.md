@@ -78,6 +78,6 @@ servir um endpoint de health.
 
 ## Links relacionados
 
-- [CLAUDE.md §2.4 — fcg-notifications-api](../../CLAUDE.md)
 - [ADR-001 — Convenção de Nomenclatura](./ADR-001-convencao-nomenclatura.md)
-- [fcg-notifications-api](https://github.com/FIAP-POS-TECH-TEAM-10/fcg-notifications-api)
+- [fcg-notifications-service (worker local)](https://github.com/FIAP-POS-TECH-TEAM-10/fcg-notifications-service)
+- [fcg-notifications-lambda (notificações na AWS)](https://github.com/FIAP-POS-TECH-TEAM-10/fcg-notifications-lambda)
