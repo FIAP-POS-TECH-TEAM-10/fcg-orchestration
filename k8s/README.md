@@ -5,7 +5,7 @@ Caminho antigo, só para cluster local. **Na AWS o deploy é outro:** [`k8s/eks`
 Aqui ficam a infraestrutura comum (namespace, RabbitMQ, DynamoDB local); cada serviço tem os seus
 manifests na pasta `k8s/` do próprio repositório.
 
-1. Imagens locais: `docker build` em cada repositório (ver o README de cada um).
+1. Imagens locais: em cada repositório, o passo 0 do `k8s/README.md` gera a imagem com a tag que os manifests esperam.
 2. Crie o Secret do RabbitMQ (o `rabbitmq-secret.yaml` daqui é só modelo) e aplique o resto:
 
 ```bash
