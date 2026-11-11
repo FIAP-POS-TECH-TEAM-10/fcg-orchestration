@@ -485,7 +485,7 @@ Write-Host "Segunda busca (com cache): ${elapsed2} ms"
 
 ### Passo 1: DynamoDB para Dados Não-Transacionais (20:00-21:30)
 
-**Fala (Gregori):**
+**Fala (Claudio):**
 > "Entender quando usar NoSQL vs SQL é crucial. No FCGames:
 > - **SQL (SQLite)**: Pedidos, Bibliotecas - dados transacionais, ACID
 > - **NoSQL (DynamoDB)**: Jogos, Desejos - dados de catalog, leitura pesada"
@@ -528,7 +528,7 @@ Retorna JSON ao cliente
 
 ### Passo 2: Elasticsearch - Busca Full-Text (21:30-22:30)
 
-**Fala (Gregori):**
+**Fala (Claudio):**
 > "Elasticsearch é um mecanismo de **busca**, não banco de dados.
 > Mantém um índice invertido que permite buscar por qualquer palavra, em qualquer campo, com fuzzy."
 
@@ -560,7 +560,7 @@ Retorna ranked by score/relevância
 - Docs: X documentos indexados
 ```
 
-**Fala (Gregori):**
+**Fala (Claudio):**
 > "Elasticsearch detecta que 'hades' pode ser 'Hades' porque vê um 1 caractere de diferença (fuzzy).
 > Tokeniza 'roguelike acelerado' em palavras, permite buscar por qualquer uma.
 > É feito para buscas; DynamoDB é feito para dados."
@@ -571,7 +571,7 @@ Retorna ranked by score/relevância
 
 ### Passo 3: Decisões Arquiteturais (22:30-24:00)
 
-**Fala (Gregori):**
+**Fala (Claudio):**
 > "Por que essas escolhas?"
 
 **Slide/Diagrama - Por que NoSQL?**
@@ -585,7 +585,7 @@ Retorna ranked by score/relevância
 ✓ SQL mantido para: Pedidos (ACID, constraints)
 ```
 
-**Fala (Gregori):**
+**Fala (Claudio):**
 > "DynamoDB é ótimo para catálogo que muda pouco e é lido muito.
 > Pedidos precisam de ACID (transaction entre Pedido, ItemPedido, Pagamento).
 > Cache + Elasticsearch + DynamoDB = **leitura rápida**, dados consistentes."
@@ -649,7 +649,7 @@ Retorna ranked by score/relevância
 - [ ] Ensaiar timings
 
 ### Materiais Necessários
-- 4x Apresentadores (Eric, Michel, Daniel, Gregori)
+- 5x Apresentadores (Eric, Michel, Daniel, Gregori, Claudio)
 - 3x Browser tabs (AWS console, GitHub Actions, Grafana)
 - 1x Terminal rodando kubectl
 - 1x VS Code com repositório
