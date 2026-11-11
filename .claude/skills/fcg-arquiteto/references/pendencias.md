@@ -12,9 +12,8 @@ Verificado em 2026-11-10. Confira o PDF do enunciado e o prazo, que não estão 
   `FCGames_IntegrationEvents-PagamentoProcessadoEvento` (e liberar na política da fila), de
   preferência no Terraform da Lambda.
 
-- [ ] **`docker compose up --build` num clone limpo**: acrescentar no `docker-compose.yml` o secret de
-  build `GITHUB_TOKEN` (bloco `secrets: { GITHUB_TOKEN: { environment: NUGET_AUTH_TOKEN } }` e
-  `build.secrets: [GITHUB_TOKEN]` em users, catalog e payments). Hoje o restore dá 401; é item do checklist.
+- [ ] **Confirmar `docker compose up --build` num clone limpo** (o compose passou a entregar o secret
+  de build `GITHUB_TOKEN` em 2026-11-10; validado com `docker compose config`, falta um build real).
 
 ## Entrega
 

@@ -36,11 +36,8 @@ Os serviços ficam cada um no seu repositório: `fcg-users-service`, `fcg-catalo
 | `ADMIN_PASSWORD` | senha do `admin@fcgames.com` (também usada pelos `.http`) |
 | `GRAFANA_PASSWORD` | senha do admin do Grafana (só para ligar o EKS pela sua máquina) |
 
-> **Atenção (pendente):** os Dockerfiles de users, catalog e payments leem o token do pacote por
-> secret de build (`--mount=type=secret,id=GITHUB_TOKEN`), e o `docker-compose.yml` ainda só passa
-> `build.args`. Num clone limpo o `docker compose up --build` falha no `dotnet restore` (401). Até o
-> compose ganhar `build.secrets`, gere as imagens antes, em cada repositório:
-> `docker build --secret id=GITHUB_TOKEN,env=NUGET_AUTH_TOKEN ...` (ver o README de cada serviço).
+> O compose entrega o `NUGET_AUTH_TOKEN` aos builds de users, catalog e payments como o secret de
+> build `GITHUB_TOKEN` (é o que os Dockerfiles leem); o token não fica gravado na imagem.
 
 3. Suba e teste:
 
@@ -85,7 +82,7 @@ O cluster `fcg-eks` **não fica ligado** (~US$ 0,20/h, sai dos créditos da cont
 
 | Sintoma | Solução |
 |---|---|
-| Build falha no `dotnet restore` (401) | no compose: falta o secret de build `GITHUB_TOKEN` (ver a atenção em "Rodar local"); fora dele: token vencido, `gh auth refresh -s read:packages` e use `gh auth token` |
+| Build falha no `dotnet restore` (401) | token vencido ou sem `read:packages`: `gh auth refresh -s read:packages` e use `gh auth token` no `.env` (o compose o repassa como secret `GITHUB_TOKEN`) |
 | `401` nos endpoints | `JWT_KEY` diferente entre serviços, ou token vencido: faça login de novo |
 | Compose não acha os serviços | pastas clonadas com outro nome (ver "Rodar local", passo 1) |
 | 502/503 logo depois de ligar o EKS | o ALB leva 1–3 min para registrar os pods |

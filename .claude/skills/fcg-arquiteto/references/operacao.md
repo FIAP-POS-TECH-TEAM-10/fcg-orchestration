@@ -23,9 +23,8 @@ update (~2,5 min) se o cluster estiver ligado. Acompanhe: `kubectl get pods -n f
 
 `docker compose up -d --build` no `fcg-orchestration` (repositórios clonados com os nomes do GitHub,
 `.env` preenchido), roteiro em `fcgames.http`, `docker compose down -v` zera os dados.
-**Hoje o build pelo compose falha num clone limpo (401 no `dotnet restore`)**: os Dockerfiles de
-users/catalog/payments usam o secret de build `GITHUB_TOKEN` e o compose só passa `build.args`.
-Contorno: gerar as imagens antes com `docker build --secret id=GITHUB_TOKEN,env=NUGET_AUTH_TOKEN ...`.
+O compose repassa o `NUGET_AUTH_TOKEN` do `.env` aos builds de users/catalog/payments como o secret de
+build `GITHUB_TOKEN` (o notifications usa `build.args`). Corrigido em 2026-11-10; antes o restore dava 401.
 
 ## Problemas comuns
 
