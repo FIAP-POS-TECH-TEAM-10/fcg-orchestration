@@ -6,7 +6,8 @@ name: fcgames
 # healthy para a API criar/migrar o banco primeiro (evita corrida de migration).
 #
 # Pré-requisitos: clonar os 5 repos como pastas irmãs e preencher o .env
-# (copie de .env.example). NUGET_AUTH_TOKEN = PAT com scope read:packages.
+# (copie de .env.example). NUGET_AUTH_TOKEN = token do GitHub com read:packages,
+# entregue aos builds como o secret GITHUB_TOKEN (bloco secrets: no fim).
 
 x-dotnet-common: &dotnet-common
   restart: on-failure
@@ -43,8 +44,7 @@ services:
     <<: *dotnet-common
     build:
       context: ../fcg-users-service
-      args:
-        NUGET_AUTH_TOKEN: ${NUGET_AUTH_TOKEN}
+      secrets: [GITHUB_TOKEN]   # o Dockerfile le o token em --mount=type=secret,id=GITHUB_TOKEN
     container_name: fcg-users-api
     ports:
       - "5001:5001"
@@ -72,8 +72,7 @@ services:
     <<: *dotnet-common
     build:
       context: ../fcg-catalog-service
-      args:
-        NUGET_AUTH_TOKEN: ${NUGET_AUTH_TOKEN}
+      secrets: [GITHUB_TOKEN]   # o Dockerfile le o token em --mount=type=secret,id=GITHUB_TOKEN
     container_name: fcg-catalog-api
     ports:
       - "5002:5002"
@@ -107,8 +106,7 @@ services:
     build:
       context: ../fcg-catalog-service
       dockerfile: Dockerfile.worker
-      args:
-        NUGET_AUTH_TOKEN: ${NUGET_AUTH_TOKEN}
+      secrets: [GITHUB_TOKEN]   # o Dockerfile le o token em --mount=type=secret,id=GITHUB_TOKEN
     container_name: fcg-catalog-worker
     environment:
       ConnectionStrings__DefaultConnection: "Data Source=/data/catalog.db"
@@ -125,8 +123,7 @@ services:
     <<: *dotnet-common
     build:
       context: ../fcg-payments-service
-      args:
-        NUGET_AUTH_TOKEN: ${NUGET_AUTH_TOKEN}
+      secrets: [GITHUB_TOKEN]   # o Dockerfile le o token em --mount=type=secret,id=GITHUB_TOKEN
     container_name: fcg-payments-api
     ports:
       - "5003:5003"
@@ -154,8 +151,7 @@ services:
     build:
       context: ../fcg-payments-service
       dockerfile: Dockerfile.worker
-      args:
-        NUGET_AUTH_TOKEN: ${NUGET_AUTH_TOKEN}
+      secrets: [GITHUB_TOKEN]   # o Dockerfile le o token em --mount=type=secret,id=GITHUB_TOKEN
     container_name: fcg-payments-worker
     environment:
       ConnectionStrings__DefaultConnection: "Data Source=/data/payments.db"
@@ -199,3 +195,9 @@ volumes:
 networks:
   fcgames-net:
     driver: bridge
+
+# Secret de build: o token do pacote privado FCGames.IntegrationEvents chega ao `dotnet restore`
+# sem ficar gravado na imagem. Vem da variavel NUGET_AUTH_TOKEN do .env.
+secrets:
+  GITHUB_TOKEN:
+    environment: NUGET_AUTH_TOKEN
