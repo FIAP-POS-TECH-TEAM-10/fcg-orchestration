@@ -40,6 +40,25 @@ services:
       - "8000:8000"
     networks: [fcgames-net]
 
+  # Elasticsearch: Motor de busca para Catalog API
+  # Indexa documentos de jogos para suportar busca avançada (fuzzy, full-text, relevância)
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.0
+    container_name: fcg-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false  # Dev only: sem autenticação
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":' && echo 0 || echo 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [fcgames-net]
+
   users-api:
     <<: *dotnet-common
     build:
@@ -86,6 +105,7 @@ services:
       JWT__ISSUER: AppFiapFcGames
       DynamoDb__ServiceUrl: "http://dynamodb-local:8000"
       DynamoDb__Region: "us-east-1"
+      Elasticsearch__Url: "http://elasticsearch:9200"
       AWS_ACCESS_KEY_ID: "local"
       AWS_SECRET_ACCESS_KEY: "local"
     volumes:
@@ -100,6 +120,8 @@ services:
         condition: service_healthy
       dynamodb-local:
         condition: service_started
+      elasticsearch:
+        condition: service_healthy
 
   catalog-worker:
     <<: *dotnet-common
