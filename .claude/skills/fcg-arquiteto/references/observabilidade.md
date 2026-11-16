@@ -6,7 +6,7 @@ Verificado em 2026-11-10. Fonte: `fcg-orchestration/k8s/eks/observability`.
   `catalog-api.fcgames.svc:80` (`/metrics`, prometheus-net). Payments não expõe métricas. Retém 2 dias.
 - **Grafana** (`grafana/grafana`, pod no EKS): `http://<alb>/grafana`, **anônimo somente leitura**,
   painel "FCGames — Observabilidade" (latência p50/p95/p99, requisições/s, erros 4xx/5xx).
-  Limite de memória 512Mi (com 256Mi era OOMKilled).
+  Limite de memória 768Mi (com 256Mi e com 512Mi era OOMKilled; o pod sobe com ~490Mi).
 - Admin do Grafana: só por `kubectl port-forward svc/grafana 3000:80 -n fcgames`, usuário `admin`,
   senha de `GRAFANA_PASSWORD`. Não logar pelo ALB (é HTTP).
 - Editar o painel: altere no Grafana, exporte o JSON e atualize

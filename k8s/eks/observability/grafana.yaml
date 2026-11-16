@@ -65,13 +65,15 @@ spec:
             - name: dashboards
               mountPath: /etc/grafana/provisioning/dashboards-data
           # Medido no ciclo real: 256Mi de limite dava OOMKilled (sobe com ~220Mi e passa disso ao
-          # servir a tela). 512Mi de limite dá folga; o request fica baixo para caber nos 2 t3.small.
+          # servir a tela). Em 2026-11-15, com o Grafana 13.2.1, o pod subiu com ~490Mi e chegou a
+          # ~510Mi: OOMKilled 2x com 512Mi, readiness falhando (503/504 no /grafana). 768Mi dá folga
+          # (~50%). O request continua baixo (192Mi) para não mudar o agendamento nos 2 t3.small.
           resources:
             requests:
               cpu: 100m
               memory: 192Mi
             limits:
-              memory: 512Mi
+              memory: 768Mi
 ---
 apiVersion: v1
 kind: Service
