@@ -87,7 +87,7 @@ log "Aplicando os serviços (k8s/eks)..."
   kubectl apply -k k8s/eks
 )
 
-for deploy in redis elasticsearch users-api catalog-api payments-api prometheus grafana; do
+for deploy in redis users-api catalog-api payments-api prometheus grafana; do
   log "Aguardando rollout de $deploy..."
   kubectl rollout status "deploy/$deploy" -n fcgames --timeout=600s
 done
