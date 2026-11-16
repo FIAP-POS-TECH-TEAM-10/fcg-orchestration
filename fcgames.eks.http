@@ -8,7 +8,8 @@
 #   kubectl logs -n fcgames deploy/payments-api -c worker -f
 ################################################################################
 
-@base = http://COLE-AQUI-O-HOST-DO-ALB
+@base = http://k8s-fcgames-fcgames-fba212511c-152077953.sa-east-1.elb.amazonaws.com
+
 
 ### 1) Cadastro -> publica UsuarioCriadoEvento (catalog cria a biblioteca)
 # @name cadastro
@@ -78,3 +79,27 @@ Content-Type: application/json
   "email": "admin@fcgames.com",
   "senha": "{{$dotenv ADMIN_PASSWORD}}"
 }
+
+### Cria um jogo (Admin) -> indexado no Elasticsearch em segundo plano
+# O indice do EKS comeca vazio: jogos do seed nao estao nele, entao crie ao menos um antes de buscar.
+POST {{base}}/jogos
+Authorization: Bearer {{loginAdmin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "nome": "Stardew Valley",
+  "descricao": "Fazendinha relaxante",
+  "preco": 24.90
+}
+
+### Busca com typo (fuzzy) -> encontra Stardew Valley
+GET {{base}}/buscaJogos?q=stardw&fuzzy=true&size=10
+Authorization: Bearer {{login.response.body.$.token}}
+
+### Busca pela descricao
+GET {{base}}/buscaJogos?q=fazendinha
+Authorization: Bearer {{login.response.body.$.token}}
+
+### Sem fuzzy -> nao encontra o typo
+GET {{base}}/buscaJogos?q=stardw&fuzzy=false
+Authorization: Bearer {{login.response.body.$.token}}
