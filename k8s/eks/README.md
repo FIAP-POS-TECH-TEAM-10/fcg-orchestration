@@ -8,11 +8,12 @@ Manifests (YAML + Kustomize) aplicados pelo `scripts/eks-up.sh` no namespace `fc
 | `catalog-api` | api (5002) + worker | ECR `fcg-catalog-service:latest` / `:worker-latest` |
 | `payments-api` | api (5003) + worker | ECR `fcg-payments-service:latest` / `:worker-latest` |
 | `redis` | cache do catalog | `redis:alpine` (ECR público) |
+| `elasticsearch` | índice da busca `/buscaJogos` (sem acesso externo, sem persistência) | `elasticsearch:8.14.0` |
 | `prometheus` | coleta `/metrics` de users e catalog (sem acesso externo) | `prom/prometheus` |
 | `grafana` | painel "FCGames — Observabilidade", anônimo só leitura | `grafana/grafana` |
 
 Um Ingress cria **um ALB** com rotas por caminho: `/usuarios` → users · `/jogos`, `/compras`,
-`/biblioteca`, `/desejos` → catalog · `/pagamentos` → payments · `/grafana` → Grafana.
+`/biblioteca`, `/desejos`, `/buscaJogos` → catalog · `/pagamentos` → payments · `/grafana` → Grafana.
 A URL muda a cada "Ligar": veja no resumo do workflow ou com `kubectl get ingress -n fcgames`.
 
 - Configuração comum em `config.env` (ConfigMap); segredos nos Secrets `fcg-jwt`, `fcg-admin` e

@@ -8,6 +8,7 @@ namespace: fcgames
 
 resources:
   - redis.yaml
+  - elasticsearch.yaml
   - users-api.yaml
   - catalog-api.yaml
   - payments-api.yaml
