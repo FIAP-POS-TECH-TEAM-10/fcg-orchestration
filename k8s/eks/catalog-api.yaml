@@ -25,6 +25,14 @@ spec:
       volumes:
         - name: data
           emptyDir: {} # SQLite compartilhado entre api e worker (Pedidos, Bibliotecas)
+      # O catalog cria o índice no startup e não tenta de novo: espera o Elasticsearch (até ~3 min).
+      initContainers:
+        - name: wait-elasticsearch
+          image: public.ecr.aws/docker/library/busybox:stable
+          command:
+            - sh
+            - -c
+            - 'for i in $(seq 1 60); do wget -q -O /dev/null http://elasticsearch:9200/_cluster/health && exit 0; sleep 3; done; exit 0'
       containers:
         - name: api
           image: 915153720516.dkr.ecr.sa-east-1.amazonaws.com/fcg-catalog-service:latest
@@ -42,6 +50,8 @@ spec:
               value: Data Source=/data/catalog.db
             - name: ConnectionStrings__Redis
               value: redis:6379
+            - name: Elasticsearch__Url
+              value: http://elasticsearch:9200
             - name: DynamoDb__Region
               value: sa-east-1
             - name: DynamoDb__ServiceUrl

@@ -104,6 +104,22 @@ Content-Type: application/json
 }
 
 ################################################################################
+# Busca avancada (Elasticsearch). Jogos criados acima sao indexados em segundo plano.
+################################################################################
+
+### Busca com typo (fuzzy) -> encontra Stardew Valley
+GET {{catalog}}/buscaJogos?q=stardw&fuzzy=true&size=10
+Authorization: Bearer {{login.response.body.$.token}}
+
+### Busca pela descricao
+GET {{catalog}}/buscaJogos?q=fazendinha
+Authorization: Bearer {{login.response.body.$.token}}
+
+### Sem fuzzy -> nao encontra o typo
+GET {{catalog}}/buscaJogos?q=stardw&fuzzy=false
+Authorization: Bearer {{login.response.body.$.token}}
+
+################################################################################
 # Lista de desejos (wishlist) - DynamoDB (partition key UsuarioId, sort key JogoId)
 ################################################################################
 

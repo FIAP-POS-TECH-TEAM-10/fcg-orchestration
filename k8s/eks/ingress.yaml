@@ -1,6 +1,5 @@
 # Um ALB (criado pelo AWS Load Balancer Controller) para os 3 serviços, roteando por path.
 # As rotas dos controllers não se repetem entre serviços, então não há rewrite.
-# Quando o /search (OpenSearch) existir no catalog, adicionar a rota aqui.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -47,6 +46,13 @@ spec:
                 port:
                   name: http
           - path: /desejos
+            pathType: Prefix
+            backend:
+              service:
+                name: catalog-api
+                port:
+                  name: http
+          - path: /buscaJogos
             pathType: Prefix
             backend:
               service:

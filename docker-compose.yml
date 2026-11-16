@@ -40,6 +40,14 @@ services:
       - "8000:8000"
     networks: [fcgames-net]
 
+  # Redis: cache do GET /jogos no catalog
+  redis:
+    image: redis:alpine
+    container_name: fcg-redis
+    ports:
+      - "6379:6379"
+    networks: [fcgames-net]
+
   # Elasticsearch: Motor de busca para Catalog API
   # Indexa documentos de jogos para suportar busca avançada (fuzzy, full-text, relevância)
   elasticsearch:
@@ -106,6 +114,7 @@ services:
       DynamoDb__ServiceUrl: "http://dynamodb-local:8000"
       DynamoDb__Region: "us-east-1"
       Elasticsearch__Url: "http://elasticsearch:9200"
+      ConnectionStrings__Redis: "redis:6379"
       AWS_ACCESS_KEY_ID: "local"
       AWS_SECRET_ACCESS_KEY: "local"
     volumes:
